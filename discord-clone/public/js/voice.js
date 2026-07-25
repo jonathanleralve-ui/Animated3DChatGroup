@@ -20,6 +20,8 @@ const VoiceChat = (() => {
   const peers = {};
   const speakingDetectors = {}; // key ('self' or socketId) -> { audioCtx, source, rafId }
   const avatar3DInstances = {}; // key -> { api, modelUrl, container }
+  let gazeBroadcastInterval = null;
+  let lastSentGazeDX = 0, lastSentGazeDY = 0;
 
   // Per-participant avatar-ring diameter (px), adjustable by hovering the
   // ring and scrolling the wheel. renderParticipants() rebuilds the tile
@@ -66,6 +68,17 @@ const VoiceChat = (() => {
       if (peers[socketId]) peers[socketId].info.muted = peerMuted;
       renderParticipants();
     });
+
+    // Someone else's avatar just turned to look somewhere - apply it to
+    // our copy of their tile if it's mounted. Doesn't touch renderParticipants
+    // at all - this is purely a visual nudge on an already-mounted instance,
+    // way too frequent to justify rebuilding the whole tile list.
+    socket.on('voice:gaze', ({ socketId, dx, dy }) => {
+      const inst = avatar3DInstances[socketId];
+      if (inst && inst.api.setRemoteGaze) inst.api.setRemoteGaze({ dx, dy });
+    });
+
+    startGazeBroadcast();
 
     socket.on('voice:signal', async ({ from, data }) => {
       const entry = peers[from];
@@ -424,6 +437,26 @@ const VoiceChat = (() => {
     if (!inst) return;
     try { inst.api.dispose(); } catch (e) { /* noop */ }
     delete avatar3DInstances[key];
+  }
+
+  // Samples the local user's own computed gaze direction and sends it to
+  // everyone else in the voice channel, so their copy of this user's
+  // avatar can turn to match (see mountAvatar3D's setRemoteGaze branch and
+  // the voice:gaze listener above). Only sends when connected to a channel
+  // and when the direction actually changed enough to matter, to keep this
+  // cheap even at a fairly tight polling interval.
+  function startGazeBroadcast() {
+    if (gazeBroadcastInterval) return;
+    gazeBroadcastInterval = setInterval(() => {
+      if (!connectedChannelId) return;
+      const selfInst = avatar3DInstances['self'];
+      if (!selfInst || !selfInst.api.getGazeDirection) return;
+      const { dx, dy } = selfInst.api.getGazeDirection();
+      if (Math.abs(dx - lastSentGazeDX) < 0.03 && Math.abs(dy - lastSentGazeDY) < 0.03) return;
+      lastSentGazeDX = dx;
+      lastSentGazeDY = dy;
+      socket.emit('voice:gaze', { channelId: connectedChannelId, dx, dy });
+    }, 150);
   }
 
   function mountAvatar3D(ring, key, modelUrl, zoom, offsetX, offsetY, rotationY, mouthIntensity, voiceStart, voiceMax, blinkIntensity, blinkIntervalMin, blinkIntervalMax, blinkEnabled, lookAtCursor) {

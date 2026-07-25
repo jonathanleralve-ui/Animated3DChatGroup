@@ -124,7 +124,7 @@ function createAvatar3D(container, options = {}) {
         cameraPosition: options.cameraPosition || [0, 1.0, 2.5], // Closer
         cameraTarget: options.cameraTarget || [0, 0.5, 0],
         modelPosition: options.modelPosition || [0, -0.5, 0],
-        autoRotateSpeed: 0.25,
+        autoRotateSpeed: 0,
         // How far the head/neck/eyes turn at most (radians) when the
         // cursor is at the screen edge. Eyes move further than the head,
         // same as real gaze behavior - a small glance is mostly eyes, a
@@ -171,6 +171,15 @@ function createAvatar3D(container, options = {}) {
     let headBone = null, neckBone = null, eyeLBone = null, eyeRBone = null;
     let headBind = null, neckBind = null, eyeLBind = null, eyeRBind = null;
     let currentHeadYaw = 0, currentHeadPitch = 0, currentEyeYaw = 0, currentEyePitch = 0;
+    // When set (via setRemoteGaze), overrides the local-cursor computation
+    // below - used for other participants' voice tiles, which display
+    // where *that person* is looking rather than tracking this browser's
+    // own cursor. lastCursorDX/DY mirror whatever direction this instance
+    // computed locally (only non-zero when isLookAtCursorEnabled is on),
+    // so the local user's own tile can read it back out via
+    // getGazeDirection() and broadcast it to everyone else.
+    let remoteGazeDX = null, remoteGazeDY = null;
+    let lastCursorDX = 0, lastCursorDY = 0;
 
     function applyFraming() {
         // target = base target, panned by the saved/dragged offset
@@ -333,7 +342,14 @@ function createAvatar3D(container, options = {}) {
         if (!headBone && !neckBone && !eyeLBone && !eyeRBone) return;
 
         let targetHeadYaw = 0, targetHeadPitch = 0, targetEyeYaw = 0, targetEyePitch = 0;
-        if (isLookAtCursorEnabled && !disposed) {
+        if (remoteGazeDX !== null) {
+            // Someone else's tile: use the direction they broadcast instead
+            // of this browser's own cursor.
+            targetHeadYaw = remoteGazeDX * CONFIG.headYawMax;
+            targetHeadPitch = remoteGazeDY * CONFIG.headPitchMax;
+            targetEyeYaw = remoteGazeDX * CONFIG.eyeYawMax;
+            targetEyePitch = remoteGazeDY * CONFIG.eyePitchMax;
+        } else if (isLookAtCursorEnabled && !disposed) {
             const rect = container.getBoundingClientRect();
             const cx = rect.left + rect.width / 2;
             const cy = rect.top + rect.height / 2;
@@ -341,11 +357,16 @@ function createAvatar3D(container, options = {}) {
             let dy = (sharedCursor.y - cy) / (window.innerHeight / 2);
             dx = Math.max(-1, Math.min(1, dx));
             dy = Math.max(-1, Math.min(1, dy));
+            lastCursorDX = dx;
+            lastCursorDY = dy;
 
             targetHeadYaw = dx * CONFIG.headYawMax;
             targetHeadPitch = dy * CONFIG.headPitchMax;
             targetEyeYaw = dx * CONFIG.eyeYawMax;
             targetEyePitch = dy * CONFIG.eyePitchMax;
+        } else {
+            lastCursorDX = 0;
+            lastCursorDY = 0;
         }
         // else: targets stay 0, so the lerp below eases back to bind pose.
 
@@ -586,7 +607,7 @@ function createAvatar3D(container, options = {}) {
             updateMouth(pendingVoiceLevel, delta);
             updateGaze(delta);
             if (autoRotateEnabled && model && CONFIG.autoRotateSpeed) {
-                //model.rotation.y = Math.sin(now / 4000) * 0.35;
+                model.rotation.y = Math.sin(now / 4000) * 0.35;
             }
         }
 
@@ -652,6 +673,24 @@ function createAvatar3D(container, options = {}) {
         // calmer "settling" rather than a jump-cut.
         setLookAtCursor(enabled) {
             isLookAtCursorEnabled = !!enabled;
+        },
+        // Read back the direction this instance is currently looking, as
+        // computed from the local cursor (only meaningful when
+        // lookAtCursor is on and no remote override is set - e.g. the
+        // local user's own voice tile). Used by voice.js to broadcast this
+        // browser's gaze to other participants.
+        getGazeDirection() {
+            return { dx: lastCursorDX, dy: lastCursorDY };
+        },
+        // Feed in a direction received from another participant instead of
+        // tracking this browser's own cursor - used for peers' voice
+        // tiles. Pass null to go back to local-cursor tracking (or to
+        // settle back to bind pose if that's off too).
+        setRemoteGaze(gaze) {
+            if (!gaze) { remoteGazeDX = null; remoteGazeDY = null; return; }
+            const { dx, dy } = gaze;
+            remoteGazeDX = Math.max(-1, Math.min(1, Number(dx) || 0));
+            remoteGazeDY = Math.max(-1, Math.min(1, Number(dy) || 0));
         },
         resize() {
             const width = container.clientWidth || 96;

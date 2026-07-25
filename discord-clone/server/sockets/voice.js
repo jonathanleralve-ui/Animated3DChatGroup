@@ -153,6 +153,17 @@ function registerVoiceHandlers(io, socket, db) {
     io.to(`voice:${cid}`).emit('voice:peer-mute-update', { socketId: socket.id, muted: info.muted });
     broadcastRoster(io, cid);
   });
+
+  // Relays where the sender's avatar is looking (dx/dy, both -1..1) so
+  // other participants' copies of that avatar turn to match. High-frequency
+  // and purely visual, so this skips voiceRoom bookkeeping and the
+  // roster/broadcastRoster machinery entirely - just a direct relay to
+  // everyone else in the room, same as voice:signal.
+  socket.on('voice:gaze', ({ channelId, dx, dy }) => {
+    const cid = Number(channelId);
+    if (cid !== socket.currentVoiceChannel) return;
+    socket.to(`voice:${cid}`).emit('voice:gaze', { socketId: socket.id, dx, dy });
+  });
 }
 
 module.exports = { registerVoiceHandlers, leaveVoiceChannel, getRoster };
