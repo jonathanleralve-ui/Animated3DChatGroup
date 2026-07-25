@@ -517,7 +517,7 @@ const VoiceChat = (() => {
     }, { passive: false });
 
     if (avatarMode === '3d' && avatarModelUrl) {
-      mountAvatar3D(ring, key, avatarModelUrl, avatarModelZoom, avatarModelOffsetX, avatarModelOffsetY, avatarModelRotationY, avatarModelMouthIntensity, avatarModelVoiceStart, avatarModelVoiceMax, avatarModelBlinkIntensity, avatarModelBlinkIntervalMin, avatarModelBlinkIntervalMax, avatarModelBlinkEnabled, avatarModelLookEnabled);
+      mountAvatar3D(ring, key, avatarModelUrl, avatarModelZoom, avatarModelOffsetX, avatarModelOffsetY, avatarModelRotationY, avatarModelMouthIntensity, avatarModelVoiceStart, avatarModelVoiceMax, avatarModelBlinkIntensity, avatarModelBlinkIntervalMin, avatarModelBlinkIntervalMax, avatarModelBlinkEnabled, isSelf && avatarModelLookEnabled);
     } else {
       disposeAvatar3D(key);
       const avatar = avatarEl({ displayName: name, avatarColor: color, avatarUrl: avatarUrl });
