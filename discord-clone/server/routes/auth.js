@@ -34,6 +34,10 @@ function publicUser(u) {
     avatarModelBlinkIntervalMax: u.avatar_model_blink_interval_max,
     avatarModelBlinkEnabled: u.avatar_model_blink_enabled,
     avatarModelLookEnabled: u.avatar_model_look_enabled,
+    bannerUrl: u.banner_url,
+    bannerZoom: u.banner_zoom,
+    bannerOffsetX: u.banner_offset_x,
+    bannerOffsetY: u.banner_offset_y,
     status: u.status
   };
 }
@@ -119,7 +123,8 @@ router.patch('/me', auth, async (req, res) => {
       avatarModelZoom, avatarModelOffsetX, avatarModelOffsetY, avatarModelRotationY,
       avatarModelMouthIntensity, avatarModelVoiceStart, avatarModelVoiceMax,
       avatarModelBlinkIntensity, avatarModelBlinkIntervalMin, avatarModelBlinkIntervalMax, avatarModelBlinkEnabled,
-      avatarModelLookEnabled
+      avatarModelLookEnabled,
+      bannerUrl, bannerZoom, bannerOffsetX, bannerOffsetY
     } = req.body || {};
     const updates = [];
     const values = [];
@@ -260,6 +265,34 @@ router.patch('/me', auth, async (req, res) => {
     if (avatarModelLookEnabled !== undefined) {
       updates.push(`avatar_model_look_enabled = $${idx++}`);
       values.push(!!avatarModelLookEnabled);
+    }
+
+    if (bannerUrl !== undefined) {
+      updates.push(`banner_url = $${idx++}`);
+      values.push(bannerUrl || null);
+    }
+
+    // Same clamp-not-reject reasoning as the 3D model framing values above -
+    // these come from a drag/scroll gesture or slider client-side.
+    if (bannerZoom !== undefined) {
+      const z = Number(bannerZoom);
+      if (!Number.isFinite(z)) return res.status(400).json({ error: 'Invalid banner zoom value' });
+      updates.push(`banner_zoom = $${idx++}`);
+      values.push(Math.min(3, Math.max(1, z)));
+    }
+
+    if (bannerOffsetX !== undefined) {
+      const x = Number(bannerOffsetX);
+      if (!Number.isFinite(x)) return res.status(400).json({ error: 'Invalid banner offset value' });
+      updates.push(`banner_offset_x = $${idx++}`);
+      values.push(Math.min(300, Math.max(-300, x)));
+    }
+
+    if (bannerOffsetY !== undefined) {
+      const y = Number(bannerOffsetY);
+      if (!Number.isFinite(y)) return res.status(400).json({ error: 'Invalid banner offset value' });
+      updates.push(`banner_offset_y = $${idx++}`);
+      values.push(Math.min(300, Math.max(-300, y)));
     }
 
     if (updates.length === 0) {

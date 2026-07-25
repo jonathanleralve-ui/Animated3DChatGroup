@@ -817,11 +817,55 @@ input { font-family: inherit; }
 }
 
 .profile-preview-banner {
+  position: relative;
   height: 76px;
   background: linear-gradient(135deg, var(--blurple) 0%, #a35cf2 50%, #eb459e 100%);
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  overflow: hidden;
+}
+
+/* Once a real photo is set, any space the drag exposes beyond its edges
+   (rather than the gradient/card background peeking through, which read as
+   a second copy of the image) should just be solid black. */
+.profile-preview-banner.has-banner-image {
+  background-color: #000;
+}
+
+/* cursor swaps to grab/grabbing via these classes only once a banner image
+   is actually set - the plain gradient fallback isn't draggable */
+.profile-preview-banner.has-banner-image {
+  cursor: grab;
+}
+
+.profile-preview-banner.dragging-banner-image {
+  cursor: grabbing;
+}
+
+.profile-banner-actions {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  display: flex;
+  gap: 4px;
+  z-index: 2;
+}
+
+.profile-banner-btn {
+  width: 28px;
+  height: 28px;
+  font-size: 13px;
+  background: rgba(0, 0, 0, 0.45);
+}
+
+.profile-banner-btn:hover {
+  background: rgba(0, 0, 0, 0.65);
 }
 
 .profile-preview-avatar-ring {
+  position: relative;
+  z-index: 3;
   width: 88px;
   height: 88px;
   margin: -44px auto 0;

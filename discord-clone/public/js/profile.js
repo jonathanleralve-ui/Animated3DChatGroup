@@ -9,6 +9,19 @@ const Profile = (() => {
   let pendingAvatarFile = null;
   let selectedNameColor = null;
 
+  // Profile banner: an image the user can upload in place of the default
+  // gradient behind their avatar. Deferred until Save (unlike the 3D model,
+  // this doesn't need a server URL just to preview - a local object URL is
+  // enough), same pattern as the flat avatar photo above. zoom/offsetX/Y
+  // frame it - drag-to-pan / scroll-to-zoom on the banner itself, or the
+  // slider - the same way the 3D model preview is framed.
+  let selectedBannerUrl = null;
+  let pendingBannerFile = null;
+  let selectedBannerZoom = 1.4;
+  let selectedBannerOffsetX = 0;
+  let selectedBannerOffsetY = 0;
+  let bannerDragState = null; // { startX, startY, startOffsetX, startOffsetY } while dragging, else null
+
   // 3D voice avatar: a zipped MMD model package (.pmx + textures) the user
   // can upload to appear as a 3D lip-synced model in voice channels instead
   // of their flat photo. avatarMode toggles which one is actually used.
@@ -412,6 +425,97 @@ const Profile = (() => {
     $('#edit-profile-remove-photo-btn').classList.toggle('hidden', !selectedAvatarUrl);
   }
 
+  // Applies the current banner image/zoom/offset state to the preview box.
+  // offsetX/Y are pixel offsets from center, so they're layered on top of
+  // the CSS's own `center center` base position via calc() - increasing
+  // offsetX pans the image right, offsetY pans it down.
+  function renderBannerPreview() {
+    const banner = $('#edit-profile-banner');
+    const hasImage = !!selectedBannerUrl;
+    banner.classList.toggle('has-banner-image', hasImage);
+    if (hasImage) {
+      banner.style.backgroundImage = `url("${selectedBannerUrl}")`;
+      banner.style.backgroundSize = `${selectedBannerZoom * 100}%`;
+      banner.style.backgroundPosition = `calc(50% + ${selectedBannerOffsetX}px) calc(50% + ${selectedBannerOffsetY}px)`;
+    } else {
+      banner.style.backgroundImage = '';
+      banner.style.backgroundSize = '';
+      banner.style.backgroundPosition = '';
+    }
+    $('#edit-profile-banner-remove-btn').classList.toggle('hidden', !hasImage);
+  }
+
+  function clampBannerOffsets() {
+    // Loosely bounded rather than strictly locked to "never reveal empty
+    // space behind the image" - that math (banner size * (zoom-1) / 2) felt
+    // too restrictive to actually frame things the way people wanted, and
+    // dragging a bit past the image's edge into empty space is fine. This
+    // just keeps the drag from running away to something absurd; the real
+    // safety net is the server's own clamp on save.
+    const banner = $('#edit-profile-banner');
+    const maxX = banner.offsetWidth;
+    const maxY = banner.offsetHeight * 2;
+    selectedBannerOffsetX = Math.min(maxX, Math.max(-maxX, selectedBannerOffsetX));
+    selectedBannerOffsetY = Math.min(maxY, Math.max(-maxY, selectedBannerOffsetY));
+  }
+
+  function applyBannerZoom(value) {
+    selectedBannerZoom = Number(value);
+    clampBannerOffsets();
+    renderBannerPreview();
+  }
+
+  function startBannerDrag(clientX, clientY) {
+    if (!selectedBannerUrl) return;
+    bannerDragState = { startX: clientX, startY: clientY, startOffsetX: selectedBannerOffsetX, startOffsetY: selectedBannerOffsetY };
+    $('#edit-profile-banner').classList.add('dragging-banner-image');
+  }
+
+  function moveBannerDrag(clientX, clientY) {
+    if (!bannerDragState) return;
+    selectedBannerOffsetX = bannerDragState.startOffsetX + (clientX - bannerDragState.startX);
+    selectedBannerOffsetY = bannerDragState.startOffsetY + (clientY - bannerDragState.startY);
+    clampBannerOffsets();
+    renderBannerPreview();
+  }
+
+  function endBannerDrag() {
+    bannerDragState = null;
+    $('#edit-profile-banner').classList.remove('dragging-banner-image');
+  }
+
+  function initBannerFraming() {
+    const banner = $('#edit-profile-banner');
+
+    banner.addEventListener('mousedown', (e) => {
+      if (e.target.closest('.profile-banner-actions')) return; // don't drag when clicking the buttons
+      e.preventDefault();
+      startBannerDrag(e.clientX, e.clientY);
+    });
+    window.addEventListener('mousemove', (e) => moveBannerDrag(e.clientX, e.clientY));
+    window.addEventListener('mouseup', endBannerDrag);
+
+    banner.addEventListener('touchstart', (e) => {
+      if (e.target.closest('.profile-banner-actions')) return;
+      const t = e.touches[0];
+      startBannerDrag(t.clientX, t.clientY);
+    }, { passive: true });
+    banner.addEventListener('touchmove', (e) => {
+      if (!bannerDragState) return;
+      const t = e.touches[0];
+      moveBannerDrag(t.clientX, t.clientY);
+    }, { passive: true });
+    banner.addEventListener('touchend', endBannerDrag);
+
+    // Scroll-to-zoom, same gesture as the 3D model preview.
+    banner.addEventListener('wheel', (e) => {
+      if (!selectedBannerUrl) return;
+      e.preventDefault();
+      const next = selectedBannerZoom - e.deltaY * 0.0015;
+      applyBannerZoom(Math.min(3, Math.max(1.4, next)));
+    }, { passive: false });
+  }
+
   function openModal() {
     $('#edit-profile-error').textContent = '';
     $('#edit-profile-displayname').value = AppState.me.displayName;
@@ -432,7 +536,13 @@ const Profile = (() => {
     selectedBlinkIntervalMax = AppState.me.avatarModelBlinkIntervalMax ?? 4;
     selectedBlinkEnabled = AppState.me.avatarModelBlinkEnabled ?? true;
     selectedLookEnabled = AppState.me.avatarModelLookEnabled ?? true;
+    selectedBannerUrl = AppState.me.bannerUrl || null;
+    pendingBannerFile = null;
+    selectedBannerZoom = AppState.me.bannerZoom ?? 1.4;
+    selectedBannerOffsetX = AppState.me.bannerOffsetX ?? 0;
+    selectedBannerOffsetY = AppState.me.bannerOffsetY ?? 0;
     renderPhotoPreview();
+    renderBannerPreview();
     renderNameColorSwatches();
     renderModelSection();
     renderPreviewCard();
@@ -472,9 +582,17 @@ const Profile = (() => {
       return;
     }
 
-    const finalizeSave = (avatarUrl) => {
+    const finalizeSave = (avatarUrl, bannerUrl) => {
       // Do not send avatarColor (removed from UI) so pass undefined
-      Api.auth.updateMe(displayName, undefined, avatarUrl, selectedNameColor, selectedModelUrl, avatarMode, selectedModelZoom, selectedModelOffsetX, selectedModelOffsetY, selectedModelRotationY, selectedMouthIntensity, selectedVoiceStart, selectedVoiceMax, selectedBlinkIntensity, selectedBlinkIntervalMin, selectedBlinkIntervalMax, selectedBlinkEnabled, selectedLookEnabled)
+      Api.auth.updateMe({
+        displayName, avatarColor: undefined, avatarUrl, nameColor: selectedNameColor,
+        avatarModelUrl: selectedModelUrl, avatarMode,
+        avatarModelZoom: selectedModelZoom, avatarModelOffsetX: selectedModelOffsetX, avatarModelOffsetY: selectedModelOffsetY, avatarModelRotationY: selectedModelRotationY,
+        avatarModelMouthIntensity: selectedMouthIntensity, avatarModelVoiceStart: selectedVoiceStart, avatarModelVoiceMax: selectedVoiceMax,
+        avatarModelBlinkIntensity: selectedBlinkIntensity, avatarModelBlinkIntervalMin: selectedBlinkIntervalMin, avatarModelBlinkIntervalMax: selectedBlinkIntervalMax, avatarModelBlinkEnabled: selectedBlinkEnabled,
+        avatarModelLookEnabled: selectedLookEnabled,
+        bannerUrl, bannerZoom: selectedBannerZoom, bannerOffsetX: selectedBannerOffsetX, bannerOffsetY: selectedBannerOffsetY
+      })
         .then((data) => {
           Object.assign(AppState.me, data.user);
           $('#me-name').textContent = AppState.me.displayName;
@@ -496,22 +614,24 @@ const Profile = (() => {
         .catch((err) => { $('#edit-profile-error').textContent = err.message; });
     };
 
-    const withAvatarUrl = (cb) => {
-      if (pendingAvatarFile) {
-        $('#edit-profile-error').textContent = 'Uploading image...';
-        Api.messages.upload(pendingAvatarFile).then((data) => cb(data.url)).catch((err) => {
-          $('#edit-profile-error').textContent = err.message;
-        });
-      } else {
-        cb(selectedAvatarUrl || null);
-      }
-    };
+    // Uploads whichever of the avatar photo / banner photo have a pending
+    // local file, in parallel, then calls finalizeSave with both final URLs.
+    // Files that weren't changed just pass through their existing URL.
+    const avatarUpload = pendingAvatarFile ? Api.messages.upload(pendingAvatarFile) : Promise.resolve({ url: selectedAvatarUrl || null });
+    const bannerUpload = pendingBannerFile ? Api.messages.upload(pendingBannerFile) : Promise.resolve({ url: selectedBannerUrl || null });
 
-    withAvatarUrl((avatarUrl) => finalizeSave(avatarUrl));
+    if (pendingAvatarFile || pendingBannerFile) {
+      $('#edit-profile-error').textContent = 'Uploading image...';
+    }
+
+    Promise.all([avatarUpload, bannerUpload])
+      .then(([avatarData, bannerData]) => finalizeSave(avatarData.url, bannerData.url))
+      .catch((err) => { $('#edit-profile-error').textContent = err.message; });
   }
 
   function initUI() {
     initFramingAccordion();
+    initBannerFraming();
     $('#edit-profile-btn').addEventListener('click', openModal);
     $('#edit-profile-cancel').addEventListener('click', closeModal);
     $('#edit-profile-close').addEventListener('click', closeModal);
@@ -534,6 +654,37 @@ const Profile = (() => {
       reader.readAsDataURL(file);
       e.target.value = '';
     });
+    $('#edit-profile-banner-upload-btn').addEventListener('click', () => $('#edit-profile-banner-file').click());
+    $('#edit-profile-banner-remove-btn').addEventListener('click', () => {
+      selectedBannerUrl = null;
+      pendingBannerFile = null;
+      selectedBannerZoom = 1;
+      selectedBannerOffsetX = 0;
+      selectedBannerOffsetY = 0;
+      renderBannerPreview();
+    });
+    $('#edit-profile-banner-file').addEventListener('change', (e) => {
+      const file = e.target.files && e.target.files[0];
+      if (!file) return;
+      pendingBannerFile = file;
+      // Reset framing on a fresh image - the old offsets almost certainly
+      // don't make sense for a differently-shaped photo. Start pre-zoomed in
+      // a bit (rather than 1 = exactly `cover`, which leaves zero slack to
+      // pan) so dragging has somewhere to go immediately - there's no slider
+      // anymore, so scrolling to zoom first isn't something everyone will
+      // discover on their own.
+      selectedBannerZoom = 1.4;
+      selectedBannerOffsetX = 0;
+      selectedBannerOffsetY = 0;
+      const reader = new FileReader();
+      reader.onload = () => {
+        selectedBannerUrl = reader.result;
+        renderBannerPreview();
+      };
+      reader.readAsDataURL(file);
+      e.target.value = '';
+    });
+
     $('#edit-profile-displayname').addEventListener('keydown', (e) => {
       if (e.key === 'Enter') save();
     });

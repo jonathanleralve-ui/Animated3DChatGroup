@@ -163,7 +163,13 @@
         <div class="profile-editor">
           <aside class="profile-editor-side">
             <div class="profile-preview-card">
-              <div class="profile-preview-banner"></div>
+              <div class="profile-preview-banner" id="edit-profile-banner">
+                <div class="profile-banner-actions">
+                  <input type="file" id="edit-profile-banner-file" accept="image/*" class="hidden" />
+                  <button class="btn-icon-round profile-banner-btn" id="edit-profile-banner-upload-btn" type="button" title="Change banner">🖼️</button>
+                  <button class="btn-icon-round profile-banner-btn hidden" id="edit-profile-banner-remove-btn" type="button" title="Remove banner">✕</button>
+                </div>
+              </div>
               <div class="profile-preview-avatar-ring">
                 <div class="profile-photo-preview profile-preview-avatar" id="edit-profile-photo-preview"></div>
               </div>

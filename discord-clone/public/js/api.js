@@ -18,8 +18,12 @@ const Api = (() => {
     register: (username, password, displayName) =>
       request('/auth/register', { method: 'POST', body: JSON.stringify({ username, password, displayName }) }),
     me: () => request('/auth/me'),
-    updateMe: (displayName, avatarColor, avatarUrl, nameColor, avatarModelUrl, avatarMode, avatarModelZoom, avatarModelOffsetX, avatarModelOffsetY, avatarModelRotationY, avatarModelMouthIntensity, avatarModelVoiceStart, avatarModelVoiceMax, avatarModelBlinkIntensity, avatarModelBlinkIntervalMin, avatarModelBlinkIntervalMax, avatarModelBlinkEnabled, avatarModelLookEnabled) =>
-      request('/auth/me', { method: 'PATCH', body: JSON.stringify({ displayName, avatarColor, avatarUrl, nameColor, avatarModelUrl, avatarMode, avatarModelZoom, avatarModelOffsetX, avatarModelOffsetY, avatarModelRotationY, avatarModelMouthIntensity, avatarModelVoiceStart, avatarModelVoiceMax, avatarModelBlinkIntensity, avatarModelBlinkIntervalMin, avatarModelBlinkIntervalMax, avatarModelBlinkEnabled, avatarModelLookEnabled }) })
+    // Takes a single fields object (rather than a long positional arg list -
+    // this already covers name/avatar/3D-model/banner settings and keeps
+    // growing) with any subset of the profile fields to update; keys left
+    // undefined are simply omitted from the JSON body, and the server only
+    // updates whatever keys it actually receives.
+    updateMe: (fields) => request('/auth/me', { method: 'PATCH', body: JSON.stringify(fields) })
   };
 
   const friends = {

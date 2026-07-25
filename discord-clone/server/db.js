@@ -85,6 +85,17 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_model_blink_enabled BOOLEAN NO
 -- On by default, matching avatar3d.js's hardcoded default.
 ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_model_look_enabled BOOLEAN NOT NULL DEFAULT true;
 
+-- Profile banner: an image the user can upload to replace the default
+-- gradient shown behind their avatar on the profile preview card.
+-- banner_zoom/offset_x/offset_y frame it the same way the 3D model is framed
+-- above (drag-to-pan / scroll-to-zoom, or the sliders) - zoom is a
+-- background-size multiplier (1 = fills the banner box, >1 = zoomed in) and
+-- offset_x/y are pixel offsets from center used to pan the image around.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS banner_url TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS banner_zoom DOUBLE PRECISION NOT NULL DEFAULT 1;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS banner_offset_x DOUBLE PRECISION NOT NULL DEFAULT 0;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS banner_offset_y DOUBLE PRECISION NOT NULL DEFAULT 0;
+
 CREATE TABLE IF NOT EXISTS friendships (
   id SERIAL PRIMARY KEY,
   requester_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
