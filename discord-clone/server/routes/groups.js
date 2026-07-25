@@ -14,6 +14,10 @@ function publicUser(u) {
     avatarColor: u.avatar_color,
     avatarUrl: u.avatar_url,
     nameColor: u.name_color,
+    bannerUrl: u.banner_url,
+    bannerZoom: u.banner_zoom,
+    bannerOffsetX: u.banner_offset_x,
+    bannerOffsetY: u.banner_offset_y,
     status: u.status
   };
 }

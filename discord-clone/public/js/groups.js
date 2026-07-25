@@ -318,13 +318,91 @@ const Groups = (() => {
       meta.innerHTML = `<div class="friend-name">${escapeHtml(m.displayName)}${m.id === AppState.me.id ? ' (you)' : ''}${ownerLabel}</div>`;
       applyNameColor(meta.querySelector('.friend-name'), m.nameColor);
       row.appendChild(meta);
-      // Clicking a fellow member opens a DM with them — the server allows
-      // this for anyone sharing a group, even if they aren't friends yet.
-      if (m.id !== AppState.me.id) {
-        row.addEventListener('click', () => Chat.openDM(m));
-      }
+      // Clicking a member opens a small profile card (avatar/banner/name)
+      // instead of jumping straight into a DM — matches how clicking a
+      // member is meant to work in the mockup (card first, "Send Message"
+      // inside it does the actual DM redirect). The server allows DMing
+      // anyone sharing a group even if they aren't friends yet.
+      row.addEventListener('click', () => openMemberCard(m, row));
       el.appendChild(row);
     });
+  }
+
+  // Renders the small member-card popover (banner/avatar/name, same visual
+  // language as the edit-profile preview card) anchored next to whichever
+  // member row was clicked, with a "Send Message" button that opens a DM.
+  function openMemberCard(member, anchorEl) {
+    const popover = $('#member-card-popover');
+    const backdrop = $('#member-card-backdrop');
+
+    // Banner
+    const banner = $('#member-card-banner');
+    const hasBanner = !!member.bannerUrl;
+    banner.classList.toggle('has-banner-image', hasBanner);
+    if (hasBanner) {
+      const zoom = member.bannerZoom || 1;
+      const offsetX = member.bannerOffsetX || 0;
+      const offsetY = member.bannerOffsetY || 0;
+      banner.style.backgroundImage = `url("${member.bannerUrl}")`;
+      banner.style.backgroundSize = `${zoom * 100}%`;
+      banner.style.backgroundPosition = `calc(50% + ${offsetX}px) calc(50% + ${offsetY}px)`;
+    } else {
+      banner.style.backgroundImage = '';
+      banner.style.backgroundSize = '';
+      banner.style.backgroundPosition = '';
+    }
+
+    // Avatar
+    const avatarBox = $('#member-card-avatar');
+    avatarBox.innerHTML = '';
+    avatarBox.appendChild(avatarWithStatus(member));
+
+    // Name / username
+    const nameEl = $('#member-card-name');
+    const ownerLabel = AppState.activeGroup && member.id === AppState.activeGroup.ownerId ? ' 👑' : '';
+    nameEl.textContent = `${member.displayName}${member.id === AppState.me.id ? ' (you)' : ''}${ownerLabel}`;
+    nameEl.style.color = '';
+    applyNameColor(nameEl, member.nameColor);
+    $('#member-card-username').textContent = member.username ? `@${member.username}` : '';
+
+    // "Send Message" jumps straight to (or opens) the DM with this member.
+    // Hidden for your own card, since you can't DM yourself.
+    const sendBtn = $('#member-card-send-btn');
+    sendBtn.classList.toggle('hidden', member.id === AppState.me.id);
+    sendBtn.onclick = () => {
+      closeMemberCard();
+      Chat.openDM(member);
+    };
+
+    backdrop.classList.remove('hidden');
+    popover.classList.remove('hidden');
+    positionMemberCard(anchorEl);
+  }
+
+  function positionMemberCard(anchorEl) {
+    const popover = $('#member-card-popover');
+    const rect = anchorEl.getBoundingClientRect();
+    const popRect = popover.getBoundingClientRect();
+    const margin = 8;
+
+    // Prefer opening to the right of the member row; fall back to the left
+    // if there isn't room, then clamp vertically within the viewport.
+    let left = rect.right + margin;
+    if (left + popRect.width > window.innerWidth - margin) {
+      left = rect.left - popRect.width - margin;
+    }
+    left = Math.max(margin, Math.min(left, window.innerWidth - popRect.width - margin));
+
+    let top = rect.top;
+    top = Math.max(margin, Math.min(top, window.innerHeight - popRect.height - margin));
+
+    popover.style.left = `${left}px`;
+    popover.style.top = `${top}px`;
+  }
+
+  function closeMemberCard() {
+    $('#member-card-popover').classList.add('hidden');
+    $('#member-card-backdrop').classList.add('hidden');
   }
 
   function openCreateModal() {
@@ -831,6 +909,11 @@ const Groups = (() => {
     document.addEventListener('click', (e) => {
       if (e.target.closest('.channel-actions')) return;
       $$('.channel-actions.open').forEach((el) => el.classList.remove('open'));
+    });
+
+    $('#member-card-backdrop').addEventListener('click', closeMemberCard);
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') closeMemberCard();
     });
 
     $('#rail-add-group').addEventListener('click', openSelectActionModal);
