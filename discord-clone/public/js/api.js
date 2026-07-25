@@ -18,8 +18,8 @@ const Api = (() => {
     register: (username, password, displayName) =>
       request('/auth/register', { method: 'POST', body: JSON.stringify({ username, password, displayName }) }),
     me: () => request('/auth/me'),
-    updateMe: (displayName, avatarColor, avatarUrl, nameColor, avatarModelUrl, avatarMode, avatarModelZoom, avatarModelOffsetX, avatarModelOffsetY, avatarModelRotationY, avatarModelMouthIntensity, avatarModelVoiceStart, avatarModelVoiceMax, avatarModelBlinkIntensity, avatarModelBlinkIntervalMin, avatarModelBlinkIntervalMax, avatarModelBlinkEnabled) =>
-      request('/auth/me', { method: 'PATCH', body: JSON.stringify({ displayName, avatarColor, avatarUrl, nameColor, avatarModelUrl, avatarMode, avatarModelZoom, avatarModelOffsetX, avatarModelOffsetY, avatarModelRotationY, avatarModelMouthIntensity, avatarModelVoiceStart, avatarModelVoiceMax, avatarModelBlinkIntensity, avatarModelBlinkIntervalMin, avatarModelBlinkIntervalMax, avatarModelBlinkEnabled }) })
+    updateMe: (displayName, avatarColor, avatarUrl, nameColor, avatarModelUrl, avatarMode, avatarModelZoom, avatarModelOffsetX, avatarModelOffsetY, avatarModelRotationY, avatarModelMouthIntensity, avatarModelVoiceStart, avatarModelVoiceMax, avatarModelBlinkIntensity, avatarModelBlinkIntervalMin, avatarModelBlinkIntervalMax, avatarModelBlinkEnabled, avatarModelLookEnabled) =>
+      request('/auth/me', { method: 'PATCH', body: JSON.stringify({ displayName, avatarColor, avatarUrl, nameColor, avatarModelUrl, avatarMode, avatarModelZoom, avatarModelOffsetX, avatarModelOffsetY, avatarModelRotationY, avatarModelMouthIntensity, avatarModelVoiceStart, avatarModelVoiceMax, avatarModelBlinkIntensity, avatarModelBlinkIntervalMin, avatarModelBlinkIntervalMax, avatarModelBlinkEnabled, avatarModelLookEnabled }) })
   };
 
   const friends = {

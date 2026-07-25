@@ -33,6 +33,7 @@ function publicUser(u) {
     avatarModelBlinkIntervalMin: u.avatar_model_blink_interval_min,
     avatarModelBlinkIntervalMax: u.avatar_model_blink_interval_max,
     avatarModelBlinkEnabled: u.avatar_model_blink_enabled,
+    avatarModelLookEnabled: u.avatar_model_look_enabled,
     status: u.status
   };
 }
@@ -117,7 +118,8 @@ router.patch('/me', auth, async (req, res) => {
       displayName, avatarColor, avatarUrl, nameColor, avatarModelUrl, avatarMode,
       avatarModelZoom, avatarModelOffsetX, avatarModelOffsetY, avatarModelRotationY,
       avatarModelMouthIntensity, avatarModelVoiceStart, avatarModelVoiceMax,
-      avatarModelBlinkIntensity, avatarModelBlinkIntervalMin, avatarModelBlinkIntervalMax, avatarModelBlinkEnabled
+      avatarModelBlinkIntensity, avatarModelBlinkIntervalMin, avatarModelBlinkIntervalMax, avatarModelBlinkEnabled,
+      avatarModelLookEnabled
     } = req.body || {};
     const updates = [];
     const values = [];
@@ -253,6 +255,11 @@ router.patch('/me', auth, async (req, res) => {
     if (avatarModelBlinkEnabled !== undefined) {
       updates.push(`avatar_model_blink_enabled = $${idx++}`);
       values.push(!!avatarModelBlinkEnabled);
+    }
+
+    if (avatarModelLookEnabled !== undefined) {
+      updates.push(`avatar_model_look_enabled = $${idx++}`);
+      values.push(!!avatarModelLookEnabled);
     }
 
     if (updates.length === 0) {

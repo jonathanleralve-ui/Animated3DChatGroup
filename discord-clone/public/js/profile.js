@@ -40,6 +40,8 @@ const Profile = (() => {
   let selectedBlinkIntervalMin = 2;
   let selectedBlinkIntervalMax = 4;
   let selectedBlinkEnabled = true;
+  // Head/eye gaze tracking toggle. Default matches avatar3d.js's default.
+  let selectedLookEnabled = true;
 
   // Optional live mic test so the user can see/hear how their thresholds
   // respond to actual speech while tuning them, instead of guessing. Fully
@@ -90,6 +92,7 @@ const Profile = (() => {
     $('#edit-profile-model-rotation-slider').value = String(selectedModelRotationY);
     renderLipSyncSliders();
     renderBlinkSliders();
+    $('#edit-profile-model-look-toggle').checked = selectedLookEnabled;
 
     const toggle = $('#edit-profile-3d-toggle');
     toggle.checked = avatarMode === '3d';
@@ -138,6 +141,7 @@ const Profile = (() => {
       blinkIntervalMin: selectedBlinkIntervalMin,
       blinkIntervalMax: selectedBlinkIntervalMax,
       blinkEnabled: selectedBlinkEnabled,
+      lookAtCursor: selectedLookEnabled,
       onReady: () => box.classList.remove('model-preview-loading'),
       onError: () => {
         box.classList.remove('model-preview-loading');
@@ -276,6 +280,11 @@ const Profile = (() => {
     }
   }
 
+  function applyLookToggle(enabled) {
+    selectedLookEnabled = enabled;
+    if (modelPreviewInstance) modelPreviewInstance.setLookAtCursor(selectedLookEnabled);
+  }
+
   function stopMicTest() {
     micTestActive = false;
     $('#edit-profile-model-mic-test').classList.remove('mic-test-active');
@@ -367,6 +376,7 @@ const Profile = (() => {
     selectedBlinkIntervalMin = AppState.me.avatarModelBlinkIntervalMin ?? 2;
     selectedBlinkIntervalMax = AppState.me.avatarModelBlinkIntervalMax ?? 4;
     selectedBlinkEnabled = AppState.me.avatarModelBlinkEnabled ?? true;
+    selectedLookEnabled = AppState.me.avatarModelLookEnabled ?? true;
     renderPhotoPreview();
     renderNameColorSwatches();
     renderModelSection();
@@ -406,7 +416,7 @@ const Profile = (() => {
 
     const finalizeSave = (avatarUrl) => {
       // Do not send avatarColor (removed from UI) so pass undefined
-      Api.auth.updateMe(displayName, undefined, avatarUrl, selectedNameColor, selectedModelUrl, avatarMode, selectedModelZoom, selectedModelOffsetX, selectedModelOffsetY, selectedModelRotationY, selectedMouthIntensity, selectedVoiceStart, selectedVoiceMax, selectedBlinkIntensity, selectedBlinkIntervalMin, selectedBlinkIntervalMax, selectedBlinkEnabled)
+      Api.auth.updateMe(displayName, undefined, avatarUrl, selectedNameColor, selectedModelUrl, avatarMode, selectedModelZoom, selectedModelOffsetX, selectedModelOffsetY, selectedModelRotationY, selectedMouthIntensity, selectedVoiceStart, selectedVoiceMax, selectedBlinkIntensity, selectedBlinkIntervalMin, selectedBlinkIntervalMax, selectedBlinkEnabled, selectedLookEnabled)
         .then((data) => {
           Object.assign(AppState.me, data.user);
           $('#me-name').textContent = AppState.me.displayName;
@@ -484,6 +494,7 @@ const Profile = (() => {
       selectedBlinkIntervalMin = 2;
       selectedBlinkIntervalMax = 4;
       selectedBlinkEnabled = true;
+      selectedLookEnabled = true;
       renderModelSection();
       disposeModelPreview();
     });
@@ -500,6 +511,7 @@ const Profile = (() => {
     $('#edit-profile-model-blink-min-slider').addEventListener('input', (e) => applyBlinkMinFromSlider(e.target.value));
     $('#edit-profile-model-blink-max-slider').addEventListener('input', (e) => applyBlinkMaxFromSlider(e.target.value));
     $('#edit-profile-model-blink-reset').addEventListener('click', resetBlinkSettings);
+    $('#edit-profile-model-look-toggle').addEventListener('change', (e) => applyLookToggle(e.target.checked));
     $('#edit-profile-model-file').addEventListener('change', (e) => {
       const file = e.target.files && e.target.files[0];
       e.target.value = '';
@@ -524,6 +536,7 @@ const Profile = (() => {
           selectedBlinkIntervalMin = 2;
           selectedBlinkIntervalMax = 4;
           selectedBlinkEnabled = true;
+          selectedLookEnabled = true;
           renderModelSection();
           mountModelPreview(selectedModelUrl);
         })

@@ -13,6 +13,28 @@ import * as THREE from 'three';
 import { MMDLoader } from 'three/addons/loaders/MMDLoader.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
+// Shared cursor position, tracked once for the whole page rather than once
+// per avatar instance (there can be many - every voice tile plus the Edit
+// Profile preview). Each instance reads from this to figure out where its
+// own head/eye bones should turn to "look" toward the cursor, based on the
+// cursor's position relative to that instance's own container on screen.
+const sharedCursor = { x: -9999, y: -9999 };
+let cursorTrackingAttached = false;
+function ensureCursorTracking() {
+    if (cursorTrackingAttached) return;
+    cursorTrackingAttached = true;
+    window.addEventListener('mousemove', (e) => {
+        sharedCursor.x = e.clientX;
+        sharedCursor.y = e.clientY;
+    }, { passive: true });
+    window.addEventListener('touchmove', (e) => {
+        if (e.touches && e.touches[0]) {
+            sharedCursor.x = e.touches[0].clientX;
+            sharedCursor.y = e.touches[0].clientY;
+        }
+    }, { passive: true });
+}
+
 function createAvatar3D(container, options = {}) {
     const {
         modelUrl,
@@ -63,6 +85,12 @@ function createAvatar3D(container, options = {}) {
         blinkIntervalMin: initialBlinkIntervalMin = 2,
         blinkIntervalMax: initialBlinkIntervalMax = 4,
         blinkEnabled: initialBlinkEnabled = true,
+        // Head/eye tracking: turns toward wherever the cursor currently is
+        // on screen (not just over this instance's own container), same
+        // "portrait that watches you" idea. On by default; toggleable live
+        // via setLookAtCursor(). Falls back to a no-op if the loaded model
+        // doesn't have recognizable head/neck/eye bones.
+        lookAtCursor: initialLookAtCursor = true,
     } = options;
 
     // Same clamp ranges as the server (server/routes/auth.js).
@@ -97,6 +125,17 @@ function createAvatar3D(container, options = {}) {
         cameraTarget: options.cameraTarget || [0, 0.5, 0],
         modelPosition: options.modelPosition || [0, -0.5, 0],
         autoRotateSpeed: 0.25,
+        // How far the head/neck/eyes turn at most (radians) when the
+        // cursor is at the screen edge. Eyes move further than the head,
+        // same as real gaze behavior - a small glance is mostly eyes, a
+        // big one brings the head along too. Neck follows the head at a
+        // fraction of its angle so the turn looks like one smooth motion
+        // rather than a hinge at the collar.
+        headYawMax: 0.35,
+        headPitchMax: 0.15,
+        neckFollow: 0.4,
+        eyeYawMax: 0.5,
+        eyePitchMax: 0.3,
     };
 
     // Same clamp range as the server (server/routes/auth.js) so what the
@@ -120,6 +159,18 @@ function createAvatar3D(container, options = {}) {
     let disposed = false;
     let rafId = null;
     let lastTime = performance.now();
+
+    // Gaze tracking state. Bones are looked up once after the model loads
+    // (null if the model doesn't have a recognizable one - tracking just
+    // no-ops for whichever bones are missing). bindEuler captures each
+    // bone's rest rotation so the gaze offset is applied additively rather
+    // than overwriting whatever pose the model started in. current*
+    // values are lerped toward the cursor-derived target each frame so the
+    // motion is a smooth turn rather than snapping.
+    let isLookAtCursorEnabled = initialLookAtCursor;
+    let headBone = null, neckBone = null, eyeLBone = null, eyeRBone = null;
+    let headBind = null, neckBind = null, eyeLBind = null, eyeRBind = null;
+    let currentHeadYaw = 0, currentHeadPitch = 0, currentEyeYaw = 0, currentEyePitch = 0;
 
     function applyFraming() {
         // target = base target, panned by the saved/dragged offset
@@ -244,6 +295,86 @@ function createAvatar3D(container, options = {}) {
         return { mouthKeys: foundMouth, blinkKeys: foundBlink };
     }
 
+    // Looks for MMD's standard bone names (head/neck/eyes, Japanese and
+    // common English variants). Returns null for anything not found so
+    // gaze tracking can gracefully skip whichever parts aren't present -
+    // plenty of models have a head bone but no separate eye bones, for
+    // instance.
+    function findBones(mesh) {
+        const headNames = ['head', '頭'];
+        const neckNames = ['neck', '首'];
+        const eyeLNames = ['eye_l', 'eyel', 'lefteye', 'l_eye', '左目'];
+        const eyeRNames = ['eye_r', 'eyer', 'righteye', 'r_eye', '右目'];
+
+        let skeleton = null;
+        mesh.traverse((child) => {
+            if (!skeleton && child.isSkinnedMesh && child.skeleton) skeleton = child.skeleton;
+        });
+        if (!skeleton) return { head: null, neck: null, eyeL: null, eyeR: null };
+
+        let head = null, neck = null, eyeL = null, eyeR = null;
+        skeleton.bones.forEach((bone) => {
+            const lower = (bone.name || '').toLowerCase();
+            if (!head && headNames.some((n) => lower.includes(n.toLowerCase()))) head = bone;
+            if (!neck && neckNames.some((n) => lower.includes(n.toLowerCase()))) neck = bone;
+            if (!eyeL && eyeLNames.some((n) => lower.includes(n.toLowerCase()))) eyeL = bone;
+            if (!eyeR && eyeRNames.some((n) => lower.includes(n.toLowerCase()))) eyeR = bone;
+        });
+        return { head, neck, eyeL, eyeR };
+    }
+
+    // Turns whichever of head/neck/eye bones were found toward wherever the
+    // cursor currently is on screen, relative to this instance's own
+    // container - so an avatar tile in the corner of the screen looks
+    // toward a cursor on the opposite side just like it would in real life.
+    // No-ops (and settles back toward the bind pose) if tracking is off or
+    // the model has none of these bones.
+    function updateGaze(delta) {
+        if (!headBone && !neckBone && !eyeLBone && !eyeRBone) return;
+
+        let targetHeadYaw = 0, targetHeadPitch = 0, targetEyeYaw = 0, targetEyePitch = 0;
+        if (isLookAtCursorEnabled && !disposed) {
+            const rect = container.getBoundingClientRect();
+            const cx = rect.left + rect.width / 2;
+            const cy = rect.top + rect.height / 2;
+            let dx = (sharedCursor.x - cx) / (window.innerWidth / 2);
+            let dy = (sharedCursor.y - cy) / (window.innerHeight / 2);
+            dx = Math.max(-1, Math.min(1, dx));
+            dy = Math.max(-1, Math.min(1, dy));
+
+            targetHeadYaw = dx * CONFIG.headYawMax;
+            targetHeadPitch = dy * CONFIG.headPitchMax;
+            targetEyeYaw = dx * CONFIG.eyeYawMax;
+            targetEyePitch = dy * CONFIG.eyePitchMax;
+        }
+        // else: targets stay 0, so the lerp below eases back to bind pose.
+
+        // Frame-rate independent easing - reaches ~90% of the way to the
+        // target in a few hundred ms regardless of refresh rate.
+        const ease = 1 - Math.pow(0.001, delta);
+        currentHeadYaw += (targetHeadYaw - currentHeadYaw) * ease;
+        currentHeadPitch += (targetHeadPitch - currentHeadPitch) * ease;
+        currentEyeYaw += (targetEyeYaw - currentEyeYaw) * ease;
+        currentEyePitch += (targetEyePitch - currentEyePitch) * ease;
+
+        if (headBone && headBind) {
+            headBone.rotation.set(headBind.x + currentHeadPitch, headBind.y + currentHeadYaw, headBind.z);
+        }
+        if (neckBone && neckBind) {
+            neckBone.rotation.set(
+                neckBind.x + currentHeadPitch * CONFIG.neckFollow,
+                neckBind.y + currentHeadYaw * CONFIG.neckFollow,
+                neckBind.z
+            );
+        }
+        if (eyeLBone && eyeLBind) {
+            eyeLBone.rotation.set(eyeLBind.x + currentEyePitch, eyeLBind.y + currentEyeYaw, eyeLBind.z);
+        }
+        if (eyeRBone && eyeRBind) {
+            eyeRBone.rotation.set(eyeRBind.x + currentEyePitch, eyeRBind.y + currentEyeYaw, eyeRBind.z);
+        }
+    }
+
     function applyMouth(amount) {
         const limited = Math.min(amount, CONFIG.mouthLimit);
         mouthKeys.forEach((k) => { k.inf[k.index] = Math.max(0, Math.min(1, limited)); });
@@ -349,7 +480,14 @@ function createAvatar3D(container, options = {}) {
                 const result = findShapeKeys(mesh);
                 mouthKeys = result.mouthKeys;
                 blinkKeys = result.blinkKeys;
-                
+
+                const bones = findBones(mesh);
+                headBone = bones.head; neckBone = bones.neck; eyeLBone = bones.eyeL; eyeRBone = bones.eyeR;
+                headBind = headBone ? headBone.rotation.clone() : null;
+                neckBind = neckBone ? neckBone.rotation.clone() : null;
+                eyeLBind = eyeLBone ? eyeLBone.rotation.clone() : null;
+                eyeRBind = eyeRBone ? eyeRBone.rotation.clone() : null;
+
                 applyMouth(0);
                 isReady = true;
                 onReady();
@@ -446,8 +584,9 @@ function createAvatar3D(container, options = {}) {
         if (isReady) {
             updateBlink(delta);
             updateMouth(pendingVoiceLevel, delta);
+            updateGaze(delta);
             if (autoRotateEnabled && model && CONFIG.autoRotateSpeed) {
-                model.rotation.y = Math.sin(now / 4000) * 0.35;
+                //model.rotation.y = Math.sin(now / 4000) * 0.35;
             }
         }
 
@@ -504,6 +643,16 @@ function createAvatar3D(container, options = {}) {
         toggleBlink(enabled) {
             isBlinkEnabled = enabled !== undefined ? enabled : !isBlinkEnabled;
         },
+        getLookAtCursor() {
+            return isLookAtCursorEnabled;
+        },
+        // Used by the "Look at cursor" toggle in Edit Profile. Turning it
+        // off doesn't snap back to bind pose instantly - updateGaze() eases
+        // there over the same lerp as normal tracking, which reads as a
+        // calmer "settling" rather than a jump-cut.
+        setLookAtCursor(enabled) {
+            isLookAtCursorEnabled = !!enabled;
+        },
         resize() {
             const width = container.clientWidth || 96;
             const height = container.clientHeight || 96;
@@ -526,6 +675,7 @@ function createAvatar3D(container, options = {}) {
 
     initScene();
     loadModel();
+    ensureCursorTracking();
     rafId = requestAnimationFrame(loop);
 
     return api;

@@ -81,6 +81,10 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_model_blink_interval_min DOUBL
 ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_model_blink_interval_max DOUBLE PRECISION NOT NULL DEFAULT 4;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_model_blink_enabled BOOLEAN NOT NULL DEFAULT true;
 
+-- Head/eye gaze tracking toggle (follows the cursor around the screen).
+-- On by default, matching avatar3d.js's hardcoded default.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_model_look_enabled BOOLEAN NOT NULL DEFAULT true;
+
 CREATE TABLE IF NOT EXISTS friendships (
   id SERIAL PRIMARY KEY,
   requester_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
