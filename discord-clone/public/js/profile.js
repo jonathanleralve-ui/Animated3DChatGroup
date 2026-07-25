@@ -79,6 +79,32 @@ const Profile = (() => {
     }
   }
 
+  // The Framing/Blinking/Lip sync/Gaze shape-key groups behave like an
+  // accordion: clicking a group's header opens that group's controls and
+  // collapses the rest, so only one set of sliders is on screen at a time.
+  // Clicking the already-open group's header collapses it too, so everything
+  // can be closed up if the person just wants the tidy, collapsed view.
+  function expandFramingGroup(groupEl) {
+    $$('.model-framing-group').forEach((g) => g.classList.add('collapsed'));
+    groupEl.classList.remove('collapsed');
+  }
+
+  function initFramingAccordion() {
+    $$('.model-framing-group-header').forEach((header) => {
+      header.addEventListener('click', (e) => {
+        // Don't hijack clicks on the enable/disable switch in the header -
+        // those should just flip the toggle, not also drive the accordion.
+        if (e.target.closest('.model-framing-group-switch')) return;
+        const group = header.closest('.model-framing-group');
+        if (group.classList.contains('collapsed')) {
+          expandFramingGroup(group);
+        } else {
+          group.classList.add('collapsed');
+        }
+      });
+    });
+  }
+
   function renderNameColorSwatches() {
     const list = $('#edit-profile-namecolor-list');
     list.innerHTML = '';
@@ -258,10 +284,12 @@ const Profile = (() => {
     $('#edit-profile-model-blink-intensity-value').textContent = `${Math.round(selectedBlinkIntensity * 100)}%`;
     $('#edit-profile-model-blink-min-value').textContent = `${selectedBlinkIntervalMin.toFixed(1)}s`;
     $('#edit-profile-model-blink-max-value').textContent = `${selectedBlinkIntervalMax.toFixed(1)}s`;
+    $('#edit-profile-model-blink-body').classList.toggle('group-disabled', !selectedBlinkEnabled);
   }
 
   function applyBlinkToggle(enabled) {
     selectedBlinkEnabled = enabled;
+    renderBlinkSliders();
     if (modelPreviewInstance) modelPreviewInstance.setBlinkSettings({ blinkEnabled: selectedBlinkEnabled });
   }
 
@@ -483,6 +511,7 @@ const Profile = (() => {
   }
 
   function initUI() {
+    initFramingAccordion();
     $('#edit-profile-btn').addEventListener('click', openModal);
     $('#edit-profile-cancel').addEventListener('click', closeModal);
     $('#edit-profile-close').addEventListener('click', closeModal);

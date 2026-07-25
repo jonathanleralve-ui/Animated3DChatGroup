@@ -215,69 +215,117 @@
                 <button class="btn-secondary hidden" id="edit-profile-model-remove-btn" type="button">Remove</button>
               </div>
               <div class="profile-model-framing hidden" id="edit-profile-model-framing">
-                <p class="model-framing-hint model-framing-hint--top">Drag to rotate &bull; right-drag to reposition &bull; scroll/pinch to zoom</p>
-
-                <div class="model-framing-group">
-                  <p class="model-framing-group-title">Framing</p>
-                  <label class="model-framing-label" for="edit-profile-model-zoom-slider">🔍 Zoom</label>
-                  <div class="model-framing-row">
-                    <input type="range" id="edit-profile-model-zoom-slider" min="0.3" max="3" step="0.05" value="1" />
-                  </div>
-                  <label class="model-framing-label" for="edit-profile-model-rotation-slider">🔄 Rotate</label>
-                  <div class="model-framing-row">
-                    <input type="range" id="edit-profile-model-rotation-slider" min="-3.14159" max="3.14159" step="0.01" value="0" />
-                  </div>
-                  <button class="btn-secondary btn-small" id="edit-profile-model-zoom-reset" type="button">Reset framing</button>
+                <div class="model-framing-tip">
+                  <span class="model-framing-tip-icon">💡</span>
+                  <span>Drag to rotate &bull; right-drag to reposition &bull; scroll/pinch to zoom</span>
                 </div>
 
-                <div class="model-framing-group">
-                  <p class="model-framing-group-title">Blinking</p>
-                  <label class="toggle-row" id="edit-profile-model-blink-toggle-label">
-                    <input type="checkbox" id="edit-profile-model-blink-toggle" checked />
-                    Enable blinking
-                  </label>
-                  <label class="model-framing-label" for="edit-profile-model-blink-intensity-slider">😉 Blink intensity <span id="edit-profile-model-blink-intensity-value" class="model-framing-value">100%</span></label>
-                  <div class="model-framing-row">
-                    <input type="range" id="edit-profile-model-blink-intensity-slider" min="0" max="1" step="0.01" value="1" />
+                <div class="model-framing-group model-framing-group--framing">
+                  <div class="model-framing-group-header">
+                    <span class="model-framing-group-icon">🔍</span>
+                    <p class="model-framing-group-title">Framing</p>
+                    <span class="model-framing-group-chevron">›</span>
                   </div>
-                  <label class="model-framing-label" for="edit-profile-model-blink-min-slider">⏱️ Min time between blinks <span id="edit-profile-model-blink-min-value" class="model-framing-value">2.0s</span></label>
-                  <div class="model-framing-row">
-                    <input type="range" id="edit-profile-model-blink-min-slider" min="0.2" max="20" step="0.1" value="2" />
+                  <div class="model-framing-group-body">
+                    <div class="model-framing-field">
+                      <label class="model-framing-label" for="edit-profile-model-zoom-slider">Zoom</label>
+                      <div class="model-framing-row">
+                        <input type="range" id="edit-profile-model-zoom-slider" min="0.3" max="3" step="0.05" value="1" />
+                      </div>
+                    </div>
+                    <div class="model-framing-field">
+                      <label class="model-framing-label" for="edit-profile-model-rotation-slider">Rotate</label>
+                      <div class="model-framing-row">
+                        <input type="range" id="edit-profile-model-rotation-slider" min="-3.14159" max="3.14159" step="0.01" value="0" />
+                      </div>
+                    </div>
                   </div>
-                  <label class="model-framing-label" for="edit-profile-model-blink-max-slider">⏱️ Max time between blinks <span id="edit-profile-model-blink-max-value" class="model-framing-value">4.0s</span></label>
-                  <div class="model-framing-row">
-                    <input type="range" id="edit-profile-model-blink-max-slider" min="0.2" max="20" step="0.1" value="4" />
+                  <div class="model-framing-group-footer">
+                    <button class="btn-secondary btn-small" id="edit-profile-model-zoom-reset" type="button">Reset framing</button>
                   </div>
-                  <button class="btn-secondary btn-small" id="edit-profile-model-blink-reset" type="button">Reset blinking</button>
                 </div>
 
-                <div class="model-framing-group">
-                  <p class="model-framing-group-title">Lip sync</p>
-                  <label class="model-framing-label" for="edit-profile-model-mouth-slider">👄 Mouth intensity <span id="edit-profile-model-mouth-value" class="model-framing-value">50%</span></label>
-                  <div class="model-framing-row">
-                    <input type="range" id="edit-profile-model-mouth-slider" min="0" max="1" step="0.01" value="0.5" />
+                <div class="model-framing-group model-framing-group--blink collapsed">
+                  <div class="model-framing-group-header">
+                    <span class="model-framing-group-icon">😉</span>
+                    <p class="model-framing-group-title">Blinking</p>
+                    <label class="model-framing-group-switch" id="edit-profile-model-blink-toggle-label">
+                      <input type="checkbox" id="edit-profile-model-blink-toggle" checked />
+                      <span class="model-framing-switch-track"></span>
+                    </label>
+                    <span class="model-framing-group-chevron">›</span>
                   </div>
-                  <label class="model-framing-label" for="edit-profile-model-voicestart-slider">🔉 Starts moving at <span id="edit-profile-model-voicestart-value" class="model-framing-value">5%</span></label>
-                  <div class="model-framing-row">
-                    <input type="range" id="edit-profile-model-voicestart-slider" min="0" max="100" step="1" value="5" />
+                  <div class="model-framing-group-body" id="edit-profile-model-blink-body">
+                    <div class="model-framing-field">
+                      <label class="model-framing-label" for="edit-profile-model-blink-intensity-slider">Blink intensity <span id="edit-profile-model-blink-intensity-value" class="model-framing-value">100%</span></label>
+                      <div class="model-framing-row">
+                        <input type="range" id="edit-profile-model-blink-intensity-slider" min="0" max="1" step="0.01" value="1" />
+                      </div>
+                    </div>
+                    <div class="model-framing-field">
+                      <label class="model-framing-label" for="edit-profile-model-blink-min-slider">Min time between blinks <span id="edit-profile-model-blink-min-value" class="model-framing-value">2.0s</span></label>
+                      <div class="model-framing-row">
+                        <input type="range" id="edit-profile-model-blink-min-slider" min="0.2" max="20" step="0.1" value="2" />
+                      </div>
+                    </div>
+                    <div class="model-framing-field">
+                      <label class="model-framing-label" for="edit-profile-model-blink-max-slider">Max time between blinks <span id="edit-profile-model-blink-max-value" class="model-framing-value">4.0s</span></label>
+                      <div class="model-framing-row">
+                        <input type="range" id="edit-profile-model-blink-max-slider" min="0.2" max="20" step="0.1" value="4" />
+                      </div>
+                    </div>
                   </div>
-                  <label class="model-framing-label" for="edit-profile-model-voicemax-slider">🔊 Fully open at <span id="edit-profile-model-voicemax-value" class="model-framing-value">59%</span></label>
-                  <div class="model-framing-row">
-                    <input type="range" id="edit-profile-model-voicemax-slider" min="0" max="100" step="1" value="59" />
+                  <div class="model-framing-group-footer">
+                    <button class="btn-secondary btn-small" id="edit-profile-model-blink-reset" type="button">Reset blinking</button>
                   </div>
-                  <div class="model-framing-group-actions">
+                </div>
+
+                <div class="model-framing-group model-framing-group--lipsync collapsed">
+                  <div class="model-framing-group-header">
+                    <span class="model-framing-group-icon">👄</span>
+                    <p class="model-framing-group-title">Lip sync</p>
+                    <span class="model-framing-group-chevron">›</span>
+                  </div>
+                  <div class="model-framing-group-body">
+                    <div class="model-framing-field">
+                      <label class="model-framing-label" for="edit-profile-model-mouth-slider">Mouth intensity <span id="edit-profile-model-mouth-value" class="model-framing-value">50%</span></label>
+                      <div class="model-framing-row">
+                        <input type="range" id="edit-profile-model-mouth-slider" min="0" max="1" step="0.01" value="0.5" />
+                      </div>
+                    </div>
+                    <div class="model-framing-field">
+                      <label class="model-framing-label" for="edit-profile-model-voicestart-slider">Starts moving at <span id="edit-profile-model-voicestart-value" class="model-framing-value">5%</span></label>
+                      <div class="model-framing-row">
+                        <input type="range" id="edit-profile-model-voicestart-slider" min="0" max="100" step="1" value="5" />
+                      </div>
+                    </div>
+                    <div class="model-framing-field">
+                      <label class="model-framing-label" for="edit-profile-model-voicemax-slider">Fully open at <span id="edit-profile-model-voicemax-value" class="model-framing-value">59%</span></label>
+                      <div class="model-framing-row">
+                        <input type="range" id="edit-profile-model-voicemax-slider" min="0" max="100" step="1" value="59" />
+                      </div>
+                    </div>
+                    <p class="auth-error" id="edit-profile-model-mic-error"></p>
+                  </div>
+                  <div class="model-framing-group-footer">
                     <button class="btn-secondary btn-small" id="edit-profile-model-lipsync-reset" type="button">Reset lip sync</button>
                     <button class="btn-secondary btn-small" id="edit-profile-model-mic-test" type="button">🎙️ Test with mic</button>
                   </div>
-                  <p class="auth-error" id="edit-profile-model-mic-error"></p>
                 </div>
 
-                <div class="model-framing-group">
-                  <p class="model-framing-group-title">Gaze</p>
-                  <label class="toggle-row" id="edit-profile-model-look-toggle-label">
-                    <input type="checkbox" id="edit-profile-model-look-toggle" checked />
-                    👀 Head/eyes follow the cursor
-                  </label>
+                <div class="model-framing-group model-framing-group--gaze collapsed">
+                  <div class="model-framing-group-header">
+                    <span class="model-framing-group-icon">👀</span>
+                    <p class="model-framing-group-title">Gaze</p>
+                    <label class="model-framing-group-switch" id="edit-profile-model-look-toggle-label">
+                      <input type="checkbox" id="edit-profile-model-look-toggle" checked />
+                      <span class="model-framing-switch-track"></span>
+                    </label>
+                    <span class="model-framing-group-chevron">›</span>
+                  </div>
+                  <div class="model-framing-group-body">
+                    <p class="model-framing-hint">Head and eyes follow the cursor while previewing.</p>
+                  </div>
                 </div>
               </div>
             </div>
