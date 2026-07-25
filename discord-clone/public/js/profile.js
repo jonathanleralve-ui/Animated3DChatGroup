@@ -54,6 +54,31 @@ const Profile = (() => {
 
   const NAME_COLORS = ['#5865F2', '#EB459E', '#57F287', '#FEE75C', '#ED4245', '#3BA55D', '#FAA61A'];
 
+  // Whether the 3D preview has been mounted yet for this modal session.
+  // Mounting is deferred until the "3D Voice Avatar" tab is actually opened
+  // (see switchTab) so three.js sees a real, already-laid-out box instead of
+  // the 0x0 it'd get while that tab panel is still display:none.
+  let modelPreviewMounted = false;
+
+  // Live "how others see you" card at the top of the editor - mirrors the
+  // display name input and selected color so changes show immediately.
+  function renderPreviewCard() {
+    const nameEl = $('#edit-profile-preview-name');
+    if (!nameEl) return;
+    const name = $('#edit-profile-displayname').value.trim() || AppState.me?.displayName || 'Display Name';
+    nameEl.textContent = name;
+    nameEl.style.color = selectedNameColor || '';
+  }
+
+  function switchTab(tabName) {
+    $$('.profile-tab').forEach((btn) => btn.classList.toggle('active', btn.dataset.tab === tabName));
+    $$('.profile-tab-panel').forEach((panel) => panel.classList.toggle('active', panel.dataset.tabPanel === tabName));
+    if (tabName === 'avatar3d' && !modelPreviewMounted) {
+      modelPreviewMounted = true;
+      mountModelPreview(selectedModelUrl);
+    }
+  }
+
   function renderNameColorSwatches() {
     const list = $('#edit-profile-namecolor-list');
     list.innerHTML = '';
@@ -65,6 +90,7 @@ const Profile = (() => {
     defaultSwatch.addEventListener('click', () => {
       selectedNameColor = null;
       renderNameColorSwatches();
+      renderPreviewCard();
     });
     list.appendChild(defaultSwatch);
 
@@ -76,6 +102,7 @@ const Profile = (() => {
       swatch.addEventListener('click', () => {
         selectedNameColor = color;
         renderNameColorSwatches();
+        renderPreviewCard();
       });
       list.appendChild(swatch);
     });
@@ -380,6 +407,9 @@ const Profile = (() => {
     renderPhotoPreview();
     renderNameColorSwatches();
     renderModelSection();
+    renderPreviewCard();
+    modelPreviewMounted = false;
+    switchTab('general');
 
     $('#chat-panel').classList.add('hidden');
     $('#empty-state').classList.add('hidden');
@@ -388,15 +418,15 @@ const Profile = (() => {
     $('#edit-profile-panel').classList.remove('hidden');
     $('#edit-profile-displayname').focus();
 
-    // Mount the 3D preview only after the panel (and its 320x320 box) is
-    // actually laid out - doing this before unhiding the panel would leave
-    // the container at 0x0 clientWidth/Height, and the renderer/camera
-    // would silently fall back to a 96x96 canvas stretched to fill the box.
-    mountModelPreview(selectedModelUrl);
+    // The 3D preview is mounted lazily by switchTab() the first time the
+    // "3D Voice Avatar" tab is opened - doing it eagerly here would target a
+    // box that's still display:none (0x0 clientWidth/Height) since that tab
+    // panel isn't the one shown by default.
   }
 
   function closeModal() {
     disposeModelPreview();
+    modelPreviewMounted = false;
     $('#edit-profile-panel').classList.add('hidden');
     if (AppState.activeChat) {
       $('#chat-panel').classList.remove('hidden');
@@ -477,6 +507,11 @@ const Profile = (() => {
     });
     $('#edit-profile-displayname').addEventListener('keydown', (e) => {
       if (e.key === 'Enter') save();
+    });
+    $('#edit-profile-displayname').addEventListener('input', renderPreviewCard);
+
+    $$('.profile-tab').forEach((btn) => {
+      btn.addEventListener('click', () => switchTab(btn.dataset.tab));
     });
 
     $('#edit-profile-model-upload-btn').addEventListener('click', () => $('#edit-profile-model-file').click());

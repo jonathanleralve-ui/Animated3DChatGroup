@@ -159,99 +159,143 @@
 
     <div id="edit-profile-panel" class="profile-panel hidden">
       <button class="btn-icon add-friend-close" id="edit-profile-close" title="Close">✕</button>
-      <div class="profile-panel-inner">
-        <h2>Edit Profile</h2>
-        <p class="profile-panel-sub">Update your name, photo, and avatar color.</p>
-        <div class="profile-photo-section">
-          <div class="profile-photo-preview" id="edit-profile-photo-preview"></div>
-          <input type="file" id="edit-profile-file" accept="image/*" class="hidden" />
-          <button class="btn-secondary" id="edit-profile-upload-btn" type="button">Upload Image</button>
-          <button class="btn-secondary hidden" id="edit-profile-remove-photo-btn" type="button">Remove</button>
-        </div>
-        <label>Display Name</label>
-        <input type="text" id="edit-profile-displayname" maxlength="32" placeholder="How others see you" />
-        <!-- avatar color selection removed -->
-        <label>Name Color</label>
-        <div class="color-swatch-list" id="edit-profile-namecolor-list"></div>
-
-        <label>3D Voice Avatar</label>
-        <p class="profile-panel-sub" style="margin-top: -6px;">Upload an MMD model (.pmx + textures, zipped) to appear as a 3D lip-synced avatar in voice channels.</p>
-        <div class="profile-model-section">
-          <div class="profile-model-preview profile-model-preview--large" id="edit-profile-model-preview">
-            <span id="edit-profile-model-preview-placeholder">No model</span>
-          </div>
-          <div class="profile-model-controls">
-            <div class="profile-model-preview-actions">
-              <input type="file" id="edit-profile-model-file" accept=".zip" class="hidden" />
-              <button class="btn-secondary" id="edit-profile-model-upload-btn" type="button">Upload Model (.zip)</button>
-              <button class="btn-secondary hidden" id="edit-profile-model-remove-btn" type="button">Remove</button>
+      <div class="profile-panel-inner profile-panel-inner--wide">
+        <div class="profile-editor">
+          <aside class="profile-editor-side">
+            <div class="profile-preview-card">
+              <div class="profile-preview-banner"></div>
+              <div class="profile-preview-avatar-ring">
+                <div class="profile-photo-preview profile-preview-avatar" id="edit-profile-photo-preview"></div>
+              </div>
+              <div class="profile-preview-body">
+                <div class="profile-preview-name" id="edit-profile-preview-name">Display Name</div>
+                <p class="profile-preview-hint">This is how your name appears to others</p>
+                <div class="profile-photo-actions">
+                  <input type="file" id="edit-profile-file" accept="image/*" class="hidden" />
+                  <button class="btn-secondary btn-small" id="edit-profile-upload-btn" type="button">Upload Image</button>
+                  <button class="btn-secondary btn-small hidden" id="edit-profile-remove-photo-btn" type="button">Remove</button>
+                </div>
+              </div>
             </div>
-            <div class="profile-model-framing hidden" id="edit-profile-model-framing">
-              <p class="model-framing-hint">Drag to rotate &bull; right-drag to reposition &bull; scroll/pinch to zoom</p>
-              <label class="model-framing-label" for="edit-profile-model-zoom-slider">🔍 Zoom</label>
-              <div class="model-framing-row">
-                <input type="range" id="edit-profile-model-zoom-slider" min="0.3" max="3" step="0.05" value="1" />
-              </div>
-              <label class="model-framing-label" for="edit-profile-model-rotation-slider">🔄 Rotate</label>
-              <div class="model-framing-row">
-                <input type="range" id="edit-profile-model-rotation-slider" min="-3.14159" max="3.14159" step="0.01" value="0" />
-              </div>
-              <button class="btn-secondary btn-small" id="edit-profile-model-zoom-reset" type="button">Reset framing</button>
 
-              <p class="model-framing-hint model-framing-hint--section">Lip sync</p>
-              <label class="model-framing-label" for="edit-profile-model-mouth-slider">👄 Mouth intensity <span id="edit-profile-model-mouth-value" class="model-framing-value">50%</span></label>
-              <div class="model-framing-row">
-                <input type="range" id="edit-profile-model-mouth-slider" min="0" max="1" step="0.01" value="0.5" />
-              </div>
-              <label class="model-framing-label" for="edit-profile-model-voicestart-slider">🔉 Starts moving at <span id="edit-profile-model-voicestart-value" class="model-framing-value">5%</span></label>
-              <div class="model-framing-row">
-                <input type="range" id="edit-profile-model-voicestart-slider" min="0" max="100" step="1" value="5" />
-              </div>
-              <label class="model-framing-label" for="edit-profile-model-voicemax-slider">🔊 Fully open at <span id="edit-profile-model-voicemax-value" class="model-framing-value">59%</span></label>
-              <div class="model-framing-row">
-                <input type="range" id="edit-profile-model-voicemax-slider" min="0" max="100" step="1" value="59" />
-              </div>
-              <button class="btn-secondary btn-small" id="edit-profile-model-lipsync-reset" type="button">Reset lip sync</button>
-              <button class="btn-secondary btn-small" id="edit-profile-model-mic-test" type="button">🎙️ Test with mic</button>
-              <p class="auth-error" id="edit-profile-model-mic-error"></p>
+            <nav class="profile-tabs" id="edit-profile-tabs">
+              <button class="profile-tab active" data-tab="general" type="button"><span class="profile-tab-icon">👤</span>Profile</button>
+              <button class="profile-tab" data-tab="avatar3d" type="button"><span class="profile-tab-icon">🧊</span>3D Voice Avatar</button>
+            </nav>
+          </aside>
 
-              <p class="model-framing-hint model-framing-hint--section">Blinking</p>
-              <label class="toggle-row" id="edit-profile-model-blink-toggle-label">
-                <input type="checkbox" id="edit-profile-model-blink-toggle" checked />
-                Enable blinking
-              </label>
-              <label class="model-framing-label" for="edit-profile-model-blink-intensity-slider">😉 Blink intensity <span id="edit-profile-model-blink-intensity-value" class="model-framing-value">100%</span></label>
-              <div class="model-framing-row">
-                <input type="range" id="edit-profile-model-blink-intensity-slider" min="0" max="1" step="0.01" value="1" />
-              </div>
-              <label class="model-framing-label" for="edit-profile-model-blink-min-slider">⏱️ Min time between blinks <span id="edit-profile-model-blink-min-value" class="model-framing-value">2.0s</span></label>
-              <div class="model-framing-row">
-                <input type="range" id="edit-profile-model-blink-min-slider" min="0.2" max="20" step="0.1" value="2" />
-              </div>
-              <label class="model-framing-label" for="edit-profile-model-blink-max-slider">⏱️ Max time between blinks <span id="edit-profile-model-blink-max-value" class="model-framing-value">4.0s</span></label>
-              <div class="model-framing-row">
-                <input type="range" id="edit-profile-model-blink-max-slider" min="0.2" max="20" step="0.1" value="4" />
-              </div>
-              <button class="btn-secondary btn-small" id="edit-profile-model-blink-reset" type="button">Reset blinking</button>
+          <div class="profile-editor-main">
+            <div class="profile-panel-header">
+              <h2>Edit Profile</h2>
+              <p class="profile-panel-sub">Update your name, photo, and avatar color.</p>
+            </div>
 
-              <p class="model-framing-hint model-framing-hint--section">Gaze</p>
-              <label class="toggle-row" id="edit-profile-model-look-toggle-label">
-                <input type="checkbox" id="edit-profile-model-look-toggle" checked />
-                👀 Head/eyes follow the cursor
-              </label>
+            <div class="profile-tab-panel active" data-tab-panel="general">
+              <section class="profile-section">
+                <label for="edit-profile-displayname">Display Name</label>
+                <input type="text" id="edit-profile-displayname" maxlength="32" placeholder="How others see you" />
+
+                <label>Name Color</label>
+                <div class="color-swatch-list" id="edit-profile-namecolor-list"></div>
+              </section>
+            </div>
+
+            <div class="profile-tab-panel" data-tab-panel="avatar3d">
+              <section class="profile-section">
+                <p class="profile-panel-sub profile-section-sub">Upload an MMD model (.pmx + textures, zipped) to appear as a 3D lip-synced avatar in voice channels.</p>
+
+                <div class="profile-model-section">
+            <div class="profile-model-preview profile-model-preview--large" id="edit-profile-model-preview">
+              <span id="edit-profile-model-preview-placeholder">No model</span>
+            </div>
+            <div class="profile-model-controls">
+              <div class="profile-model-preview-actions">
+                <input type="file" id="edit-profile-model-file" accept=".zip" class="hidden" />
+                <button class="btn-secondary" id="edit-profile-model-upload-btn" type="button">Upload Model (.zip)</button>
+                <button class="btn-secondary hidden" id="edit-profile-model-remove-btn" type="button">Remove</button>
+              </div>
+              <div class="profile-model-framing hidden" id="edit-profile-model-framing">
+                <p class="model-framing-hint model-framing-hint--top">Drag to rotate &bull; right-drag to reposition &bull; scroll/pinch to zoom</p>
+
+                <div class="model-framing-group">
+                  <p class="model-framing-group-title">Framing</p>
+                  <label class="model-framing-label" for="edit-profile-model-zoom-slider">🔍 Zoom</label>
+                  <div class="model-framing-row">
+                    <input type="range" id="edit-profile-model-zoom-slider" min="0.3" max="3" step="0.05" value="1" />
+                  </div>
+                  <label class="model-framing-label" for="edit-profile-model-rotation-slider">🔄 Rotate</label>
+                  <div class="model-framing-row">
+                    <input type="range" id="edit-profile-model-rotation-slider" min="-3.14159" max="3.14159" step="0.01" value="0" />
+                  </div>
+                  <button class="btn-secondary btn-small" id="edit-profile-model-zoom-reset" type="button">Reset framing</button>
+                </div>
+
+                <div class="model-framing-group">
+                  <p class="model-framing-group-title">Blinking</p>
+                  <label class="toggle-row" id="edit-profile-model-blink-toggle-label">
+                    <input type="checkbox" id="edit-profile-model-blink-toggle" checked />
+                    Enable blinking
+                  </label>
+                  <label class="model-framing-label" for="edit-profile-model-blink-intensity-slider">😉 Blink intensity <span id="edit-profile-model-blink-intensity-value" class="model-framing-value">100%</span></label>
+                  <div class="model-framing-row">
+                    <input type="range" id="edit-profile-model-blink-intensity-slider" min="0" max="1" step="0.01" value="1" />
+                  </div>
+                  <label class="model-framing-label" for="edit-profile-model-blink-min-slider">⏱️ Min time between blinks <span id="edit-profile-model-blink-min-value" class="model-framing-value">2.0s</span></label>
+                  <div class="model-framing-row">
+                    <input type="range" id="edit-profile-model-blink-min-slider" min="0.2" max="20" step="0.1" value="2" />
+                  </div>
+                  <label class="model-framing-label" for="edit-profile-model-blink-max-slider">⏱️ Max time between blinks <span id="edit-profile-model-blink-max-value" class="model-framing-value">4.0s</span></label>
+                  <div class="model-framing-row">
+                    <input type="range" id="edit-profile-model-blink-max-slider" min="0.2" max="20" step="0.1" value="4" />
+                  </div>
+                  <button class="btn-secondary btn-small" id="edit-profile-model-blink-reset" type="button">Reset blinking</button>
+                </div>
+
+                <div class="model-framing-group">
+                  <p class="model-framing-group-title">Lip sync</p>
+                  <label class="model-framing-label" for="edit-profile-model-mouth-slider">👄 Mouth intensity <span id="edit-profile-model-mouth-value" class="model-framing-value">50%</span></label>
+                  <div class="model-framing-row">
+                    <input type="range" id="edit-profile-model-mouth-slider" min="0" max="1" step="0.01" value="0.5" />
+                  </div>
+                  <label class="model-framing-label" for="edit-profile-model-voicestart-slider">🔉 Starts moving at <span id="edit-profile-model-voicestart-value" class="model-framing-value">5%</span></label>
+                  <div class="model-framing-row">
+                    <input type="range" id="edit-profile-model-voicestart-slider" min="0" max="100" step="1" value="5" />
+                  </div>
+                  <label class="model-framing-label" for="edit-profile-model-voicemax-slider">🔊 Fully open at <span id="edit-profile-model-voicemax-value" class="model-framing-value">59%</span></label>
+                  <div class="model-framing-row">
+                    <input type="range" id="edit-profile-model-voicemax-slider" min="0" max="100" step="1" value="59" />
+                  </div>
+                  <div class="model-framing-group-actions">
+                    <button class="btn-secondary btn-small" id="edit-profile-model-lipsync-reset" type="button">Reset lip sync</button>
+                    <button class="btn-secondary btn-small" id="edit-profile-model-mic-test" type="button">🎙️ Test with mic</button>
+                  </div>
+                  <p class="auth-error" id="edit-profile-model-mic-error"></p>
+                </div>
+
+                <div class="model-framing-group">
+                  <p class="model-framing-group-title">Gaze</p>
+                  <label class="toggle-row" id="edit-profile-model-look-toggle-label">
+                    <input type="checkbox" id="edit-profile-model-look-toggle" checked />
+                    👀 Head/eyes follow the cursor
+                  </label>
+                </div>
+              </div>
             </div>
           </div>
-        </div>
-        <p class="profile-panel-sub" id="edit-profile-model-status">No 3D model uploaded yet</p>
-        <label class="toggle-row" id="edit-profile-3d-toggle-label">
-          <input type="checkbox" id="edit-profile-3d-toggle" />
-          Use 3D avatar in voice chat
-        </label>
+          <p class="profile-panel-sub" id="edit-profile-model-status">No 3D model uploaded yet</p>
+          <label class="toggle-row" id="edit-profile-3d-toggle-label">
+            <input type="checkbox" id="edit-profile-3d-toggle" />
+            Use 3D avatar in voice chat
+          </label>
+              </section>
+            </div>
 
-        <div class="auth-error" id="edit-profile-error"></div>
-        <div class="profile-actions">
-          <button class="btn-secondary" id="edit-profile-cancel">Cancel</button>
-          <button class="btn-primary" id="edit-profile-save">Save</button>
+            <div class="auth-error" id="edit-profile-error"></div>
+            <div class="profile-actions">
+              <button class="btn-secondary" id="edit-profile-cancel">Cancel</button>
+              <button class="btn-primary" id="edit-profile-save">Save</button>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -410,17 +454,6 @@
     </div>
   </div>
 
-  <div class="modal hidden" id="edit-profile-modal">
-    <h2>Edit Profile</h2>
-    <label>Display Name</label>
-    <input type="text" id="edit-profile-displayname" maxlength="32" placeholder="How others see you" />
-    <!-- avatar color selection removed -->
-    <div class="auth-error" id="edit-profile-error"></div>
-    <div class="modal-actions">
-      <button class="btn-secondary" id="edit-profile-cancel">Cancel</button>
-      <button class="btn-primary" id="edit-profile-save">Save</button>
-    </div>
-  </div>
 </div>
 
 <script type="importmap">
