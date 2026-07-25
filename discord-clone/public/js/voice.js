@@ -29,6 +29,11 @@ const VoiceChat = (() => {
   // itself has to live here (keyed like avatar3DInstances) rather than on
   // the element, or it'd reset back to default on the next re-render.
   const tileSizes = {}; // key -> diameter in px
+  // key -> { x, y } in px, relative to #voice-participants' top-left.
+  // Absent = tile stays in the normal flex-wrap flow (the default grid
+  // layout); once a tile's been dragged, it switches to free positioning
+  // and stays there across re-renders until the page reloads.
+  const tilePositions = {};
   const TILE_SIZE_DEFAULT = 250;
   const TILE_SIZE_MIN = 64;
   const TILE_SIZE_MAX = 360;
@@ -518,13 +523,159 @@ const VoiceChat = (() => {
       list.innerHTML = '<div class="empty-list-hint">No one is in voice chat.</div>';
     }
 
+    syncFreeformContainerHeight();
     enforcePanelMinHeight();
+  }
+
+  // Free-dragging voice tiles around #voice-participants. A tile starts in
+  // the normal flex-wrap flow; grabbing and moving it past a small
+  // threshold switches it to absolute positioning at wherever it's
+  // dropped, saved in tilePositions so it stays put across re-renders
+  // (mute/share/join/leave all call renderParticipants and rebuild the
+  // DOM from scratch). A plain click/tap that never crosses the threshold
+  // falls through untouched - there's nothing else to click on a tile
+  // right now, but this keeps the door open for that.
+  const TILE_DRAG_THRESHOLD = 4;
+  let tileDrag = null;
+
+  function beginTileDrag(e, key, tile) {
+    if (e.button !== undefined && e.button !== 0) return; // primary button/touch only
+    const container = $('#voice-participants');
+    if (!container) return;
+    const containerRect = container.getBoundingClientRect();
+    const tileRect = tile.getBoundingClientRect();
+    tileDrag = {
+      key,
+      tile,
+      container,
+      pointerId: e.pointerId,
+      startClientX: e.clientX,
+      startClientY: e.clientY,
+      baseLeft: tileRect.left - containerRect.left,
+      baseTop: tileRect.top - containerRect.top,
+      moved: false,
+    };
+    window.addEventListener('pointermove', onTileDragMove);
+    window.addEventListener('pointerup', endTileDrag);
+    window.addEventListener('pointercancel', endTileDrag);
+  }
+
+  // How tall #voice-participants can ever get, matching the same cap the
+  // resize handle and computeMinHeight() use (window.innerHeight * 0.7)
+  // minus whatever else the panel reserves (padding, the top bar, and the
+  // share tile while streaming). Dragging a tile down is clamped to this
+  // so it can never end up below where the panel's own resize handle
+  // could ever scroll it into view.
+  function getMaxParticipantsAreaHeight() {
+    const panel = $('#voice-panel');
+    if (!panel) return Infinity;
+    const m = getPanelLayoutMetrics(panel);
+    const maxPanelHeight = window.innerHeight * 0.7;
+    const reserved = m.paddingTop + m.paddingBottom + m.topHeight + m.participantsMarginBottom
+      + (m.isStreaming ? m.gridMarginBottom + STREAM_TILE_MIN : 0);
+    return Math.max(0, maxPanelHeight - reserved);
+  }
+
+  // Keeps the panel height in sync with the dragged tile's position live,
+  // in both directions: grows when it's pulled down past the current
+  // bottom edge, and shrinks back when it's pulled back up - so the resize
+  // separator tracks the drag like it's attached to the tile. Floored at
+  // computeMinHeight (room for the controls bar plus a full tile row) and
+  // capped at the same max the handle itself respects, and also accounts
+  // for any other tiles that were already freely positioned elsewhere, so
+  // shrinking to fit the one being dragged never hides another one.
+  function syncPanelHeightToDrag(tileBottom) {
+    const panel = $('#voice-panel');
+    if (!panel || !tileDrag) return;
+    const m = getPanelLayoutMetrics(panel);
+
+    let maxBottom = tileBottom;
+    Object.keys(tilePositions).forEach((key) => {
+      if (key === tileDrag.key) return; // that one's covered by tileBottom, which tracks its live position
+      const el = tileDrag.container.querySelector(`.voice-tile[data-speaker="${CSS.escape(key)}"]`);
+      if (!el) return;
+      maxBottom = Math.max(maxBottom, tilePositions[key].y + el.offsetHeight);
+    });
+
+    const needed = m.paddingTop + m.paddingBottom + m.topHeight + maxBottom + m.participantsMarginBottom
+      + (m.isStreaming ? m.gridMarginBottom + STREAM_TILE_MIN : 0);
+
+    const maxPanelHeight = window.innerHeight * 0.7;
+    const minPanelHeight = computeMinHeight(panel);
+    const target = Math.min(Math.max(Math.ceil(needed), minPanelHeight), maxPanelHeight);
+    panel.style.setProperty('--voice-panel-height', `${target}px`);
+    updateStreamTileHeight(panel);
+  }
+
+  function onTileDragMove(e) {
+    if (!tileDrag) return;
+    const dx = e.clientX - tileDrag.startClientX;
+    const dy = e.clientY - tileDrag.startClientY;
+
+    if (!tileDrag.moved) {
+      if (Math.hypot(dx, dy) < TILE_DRAG_THRESHOLD) return;
+      tileDrag.moved = true;
+      tileDrag.tile.classList.add('voice-tile--dragging');
+      tileDrag.tile.style.position = 'absolute';
+      tileDrag.tile.style.margin = '0';
+      try { tileDrag.tile.setPointerCapture(tileDrag.pointerId); } catch (err) { /* noop */ }
+    }
+
+    const containerRect = tileDrag.container.getBoundingClientRect();
+    const maxLeft = Math.max(0, containerRect.width - tileDrag.tile.offsetWidth);
+    const maxTop = Math.max(0, getMaxParticipantsAreaHeight() - tileDrag.tile.offsetHeight);
+    const left = Math.min(maxLeft, Math.max(0, tileDrag.baseLeft + dx));
+    const top = Math.min(maxTop, Math.max(0, tileDrag.baseTop + dy));
+    tileDrag.tile.style.left = `${left}px`;
+    tileDrag.tile.style.top = `${top}px`;
+    syncPanelHeightToDrag(top + tileDrag.tile.offsetHeight);
+  }
+
+  function endTileDrag() {
+    if (!tileDrag) return;
+    const { key, tile, moved } = tileDrag;
+    window.removeEventListener('pointermove', onTileDragMove);
+    window.removeEventListener('pointerup', endTileDrag);
+    window.removeEventListener('pointercancel', endTileDrag);
+    if (moved) {
+      tile.classList.remove('voice-tile--dragging');
+      tilePositions[key] = { x: parseFloat(tile.style.left) || 0, y: parseFloat(tile.style.top) || 0 };
+      syncFreeformContainerHeight();
+    }
+    tileDrag = null;
+  }
+
+  // Once at least one tile has been pulled out of the flow, the container
+  // needs an explicit min-height covering the lowest dragged tile - an
+  // absolutely-positioned child doesn't otherwise grow its parent, so
+  // without this a tile dragged below the flex-flow content would get cut
+  // off by the panel's scroll area instead of being reachable by scrolling
+  // down to it.
+  function syncFreeformContainerHeight() {
+    const container = $('#voice-participants');
+    if (!container) return;
+    const keys = Object.keys(tilePositions);
+    if (keys.length === 0) { container.style.minHeight = ''; return; }
+    let maxBottom = 0;
+    keys.forEach((key) => {
+      const tile = container.querySelector(`.voice-tile[data-speaker="${CSS.escape(key)}"]`);
+      if (!tile || !tilePositions[key]) return;
+      maxBottom = Math.max(maxBottom, tilePositions[key].y + tile.offsetHeight);
+    });
+    if (maxBottom > 0) container.style.minHeight = `${Math.ceil(maxBottom) + 16}px`;
   }
 
   function participantTile(key, name, color, isMuted, isSharing, isSelf, avatarUrl, nameColor, avatarMode, avatarModelUrl, avatarModelZoom, avatarModelOffsetX, avatarModelOffsetY, avatarModelRotationY, avatarModelMouthIntensity, avatarModelVoiceStart, avatarModelVoiceMax, avatarModelBlinkIntensity, avatarModelBlinkIntervalMin, avatarModelBlinkIntervalMax, avatarModelBlinkEnabled, avatarModelLookEnabled) {
     const tile = document.createElement('div');
     tile.className = 'voice-tile';
     tile.dataset.speaker = key;
+    if (tilePositions[key]) {
+      tile.style.position = 'absolute';
+      tile.style.margin = '0';
+      tile.style.left = `${tilePositions[key].x}px`;
+      tile.style.top = `${tilePositions[key].y}px`;
+    }
+    tile.addEventListener('pointerdown', (e) => beginTileDrag(e, key, tile));
 
     const ring = document.createElement('div');
     ring.className = 'avatar-ring';
