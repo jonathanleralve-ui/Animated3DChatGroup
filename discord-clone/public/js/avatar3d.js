@@ -267,12 +267,12 @@ function createAvatar3D(container, options = {}) {
         // Brighter lights to see the model
         const ambient = new THREE.AmbientLight(0xffffff, 0.8);
         scene.add(ambient);
-        const main = new THREE.DirectionalLight(0xffffff, 1.5);
-        main.position.set(2, 5, 3);
-        scene.add(main);
-        const fill = new THREE.DirectionalLight(0xaaccff, 0.8);
-        fill.position.set(-3, 2, 2);
-        scene.add(fill);
+        //const main = new THREE.DirectionalLight(0xffffff, 1.5);
+        //main.position.set(2, 5, 3);
+        //scene.add(main);
+        //const fill = new THREE.DirectionalLight(0xaaccff, 0.8);
+        //fill.position.set(-3, 2, 2);
+        //scene.add(fill);
 
         // Add a grid helper to see the ground
         const gridHelper = new THREE.GridHelper(5, 10, 0x888888, 0x444444);
