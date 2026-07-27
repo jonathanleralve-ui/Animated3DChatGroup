@@ -1353,11 +1353,70 @@ input { font-family: inherit; }
 }
 
 .model-framing-group-footer .btn-small { margin-top: 0; }
-
 .model-framing-group--framing { --group-accent: var(--blurple, #5865F2); }
 .model-framing-group--blink { --group-accent: #EB459E; }
 .model-framing-group--lipsync { --group-accent: var(--green, #57F287); }
 .model-framing-group--gaze { --group-accent: var(--yellow, #FEE75C); }
+.model-framing-group--cursortrail { --group-accent: #1ABC9C; }
+.model-framing-group--customcursor { --group-accent: #FEA943; }
+.model-framing-group--customcursor { --group-accent: #FEA943; }
+.model-framing-group--clickimages { --group-accent: #9B59B6; }
+
+.click-image-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 10px;
+}
+
+.click-image-slot {
+  aspect-ratio: 1;
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  background: var(--bg-darkest);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  color: var(--text-muted, #949ba4);
+  font-size: 20px;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.click-image-slot:hover {
+  border-color: var(--group-accent, var(--blurple));
+  background: var(--bg-light);
+}
+
+.click-image-slot.filled {
+  border-style: solid;
+  cursor: default;
+}
+
+.click-image-slot img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.click-image-slot-remove {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.65);
+  color: #fff;
+  border: none;
+  font-size: 11px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
 
 .model-framing-group-switch {
   margin-left: auto;
