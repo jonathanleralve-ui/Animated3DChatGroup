@@ -6,10 +6,11 @@
 // channelId -> Map of socketId -> { userId, displayName, avatarColor, avatarUrl, nameColor, sharing }
 const voiceRooms = new Map();
 
-// channelId -> Map of strokeId -> { color, size, points: [{x,y}] } - the
-// shared whiteboard for that voice channel. Kept in memory only (same
+// channelId -> Map of strokeId -> { tool, color, size, points: [{x,y}], text? }
+// the shared whiteboard for that voice channel. Kept in memory only (same
 // lifetime as voiceRooms) and wiped once the channel empties out, same as
-// the rest of the call state.
+// the rest of the call state. strokeId is always `${socketId}-...`, which
+// doubles as an ownership check for undo (see voice:draw-undo below).
 const voiceDraw = new Map();
 const MAX_STROKES_PER_CHANNEL = 400; // oldest strokes drop off past this to bound memory
 
@@ -186,12 +187,18 @@ function registerVoiceHandlers(io, socket, db) {
     socket.to(`voice:${cid}`).emit('voice:gaze', { socketId: socket.id, dx, dy });
   });
 
-  // Shared whiteboard: relay a batch of freehand points to the rest of the
-  // channel and append them to the stored stroke so late joiners can catch
-  // up via voice:draw-state above.
-  socket.on('voice:draw-point', ({ channelId, strokeId, color, size, points }) => {
+  const VALID_TOOLS = new Set(['pen', 'eraser', 'line', 'rect', 'ellipse', 'text']);
+
+  // Shared whiteboard: relay a batch of points (freehand pen/eraser points,
+  // or the complete outline of a shape, or a single placement point for
+  // text) to the rest of the channel and append them to the stored stroke
+  // so late joiners can catch up via voice:draw-state above.
+  socket.on('voice:draw-point', ({ channelId, strokeId, tool, color, size, text, points }) => {
     const cid = Number(channelId);
     if (cid !== socket.currentVoiceChannel || !strokeId || !Array.isArray(points) || points.length === 0) return;
+    // strokeIds are minted client-side as `${socket.id}-...` - reject anyone
+    // trying to write a stroke under another socket's id.
+    if (!strokeId.startsWith(`${socket.id}-`)) return;
 
     const state = drawState(cid);
     let stroke = state.get(strokeId);
@@ -200,7 +207,13 @@ function registerVoiceHandlers(io, socket, db) {
         const oldestId = state.keys().next().value;
         state.delete(oldestId);
       }
-      stroke = { color: String(color || '#ffffff'), size: Number(size) || 4, points: [] };
+      stroke = {
+        tool: VALID_TOOLS.has(tool) ? tool : 'pen',
+        color: String(color || '#ffffff'),
+        size: Number(size) || 4,
+        points: []
+      };
+      if (typeof text === 'string') stroke.text = text.slice(0, 200);
       state.set(strokeId, stroke);
     }
     const clean = points
@@ -209,8 +222,18 @@ function registerVoiceHandlers(io, socket, db) {
     stroke.points.push(...clean);
 
     socket.to(`voice:${cid}`).emit('voice:draw-point', {
-      strokeId, color: stroke.color, size: stroke.size, points: clean
+      strokeId, tool: stroke.tool, color: stroke.color, size: stroke.size, text: stroke.text, points: clean
     });
+  });
+
+  // Undo: only the socket that created a stroke (same id prefix) may remove it.
+  socket.on('voice:draw-undo', ({ channelId, strokeId }) => {
+    const cid = Number(channelId);
+    if (cid !== socket.currentVoiceChannel || !strokeId) return;
+    if (!strokeId.startsWith(`${socket.id}-`)) return;
+    const state = drawState(cid);
+    if (!state.delete(strokeId)) return;
+    socket.to(`voice:${cid}`).emit('voice:draw-undo', { strokeId });
   });
 
   socket.on('voice:draw-clear', ({ channelId }) => {

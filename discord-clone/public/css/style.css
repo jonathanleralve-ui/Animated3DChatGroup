@@ -2219,9 +2219,16 @@ input { font-family: inherit; }
   position: absolute;
   inset: 0;
   z-index: 3;
-  background: rgba(30, 31, 34, 0.55);
+  background: rgba(20, 21, 24, 0.6);
+  backdrop-filter: blur(1px);
+  animation: voice-draw-fade-in 0.15s ease-out;
 }
 .voice-draw-layer.hidden { display: none; }
+
+@keyframes voice-draw-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
 
 .voice-draw-canvas {
   position: absolute;
@@ -2231,6 +2238,36 @@ input { font-family: inherit; }
   cursor: crosshair;
   touch-action: none;
 }
+.voice-draw-canvas.tool-eraser { cursor: none; }
+.voice-draw-canvas.tool-text { cursor: text; }
+.voice-draw-canvas.tool-shape { cursor: crosshair; }
+
+/* Dashed circle that tracks the pointer showing the eraser's radius */
+.voice-draw-eraser-cursor {
+  position: absolute;
+  top: 0;
+  left: 0;
+  border-radius: 50%;
+  border: 1.5px dashed rgba(255, 255, 255, 0.85);
+  background: rgba(255, 255, 255, 0.08);
+  pointer-events: none;
+  z-index: 4;
+  will-change: transform;
+}
+.voice-draw-eraser-cursor.hidden { display: none; }
+
+.voice-draw-text-input {
+  position: absolute;
+  z-index: 5;
+  background: transparent;
+  border: 1px dashed rgba(255, 255, 255, 0.5);
+  border-radius: 4px;
+  padding: 1px 4px;
+  font-family: "gg sans", -apple-system, sans-serif;
+  font-weight: 600;
+  outline: none;
+  min-width: 60px;
+}
 
 .voice-draw-toolbar {
   position: absolute;
@@ -2239,12 +2276,49 @@ input { font-family: inherit; }
   transform: translateX(-50%);
   display: flex;
   align-items: center;
-  gap: 10px;
-  background: var(--bg-lighter, #1e1f22);
-  padding: 6px 10px;
-  border-radius: 20px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+  gap: 8px;
+  background: rgba(30, 31, 34, 0.9);
+  backdrop-filter: blur(10px);
+  padding: 6px 8px;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45);
+  max-width: calc(100% - 20px);
+  overflow-x: auto;
+  animation: voice-draw-toolbar-in 0.18s cubic-bezier(0.2, 0.8, 0.3, 1);
 }
+
+@keyframes voice-draw-toolbar-in {
+  from { opacity: 0; transform: translate(-50%, -6px) scale(0.96); }
+  to { opacity: 1; transform: translate(-50%, 0) scale(1); }
+}
+
+.voice-draw-group { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+.voice-draw-divider {
+  width: 1px;
+  align-self: stretch;
+  margin: 4px 0;
+  background: rgba(255, 255, 255, 0.1);
+  flex-shrink: 0;
+}
+
+.voice-draw-tool-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  color: var(--text-normal, #dbdee1);
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+  transition: background 0.12s ease, transform 0.12s ease;
+}
+.voice-draw-tool-btn:hover { background: rgba(255, 255, 255, 0.08); transform: translateY(-1px); }
+.voice-draw-tool-btn.selected { background: var(--blurple, #5865f2); color: #fff; }
 
 .voice-draw-swatches, .voice-draw-sizes { display: flex; align-items: center; gap: 6px; }
 
@@ -2255,9 +2329,27 @@ input { font-family: inherit; }
   border: 2px solid transparent;
   cursor: pointer;
   padding: 0;
+  transition: transform 0.12s ease, border-color 0.12s ease;
 }
+.voice-draw-swatch:hover { transform: scale(1.12); }
 .voice-draw-swatch.selected { border-color: var(--text-bright, #fff); }
 
+.voice-draw-swatch-custom {
+  position: relative;
+  display: block;
+  background: conic-gradient(red, yellow, lime, cyan, blue, magenta, red);
+  cursor: pointer;
+}
+.voice-draw-swatch-custom input[type="color"] {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+  border: none;
+  padding: 0;
+}
 
 .voice-draw-size-btn {
   width: 24px;
@@ -2270,6 +2362,7 @@ input { font-family: inherit; }
   justify-content: center;
   cursor: pointer;
   padding: 0;
+  transition: border-color 0.12s ease;
 }
 .voice-draw-size-btn span {
   display: block;
@@ -2277,6 +2370,21 @@ input { font-family: inherit; }
   background: var(--text-normal, #dbdee1);
 }
 .voice-draw-size-btn.selected { border-color: var(--blurple, #5865f2); }
+
+.voice-draw-icon-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  color: var(--text-normal, #dbdee1);
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 0;
+  transition: background 0.12s ease;
+}
+.voice-draw-icon-btn:hover { background: rgba(255, 255, 255, 0.08); }
 
 .voice-draw-clear-btn, .voice-draw-close-btn {
   border: none;
@@ -2287,8 +2395,10 @@ input { font-family: inherit; }
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
+  transition: background 0.12s ease;
 }
-.voice-draw-clear-btn:hover, .voice-draw-close-btn:hover { background: var(--bg-lighter, #40444b); }
+.voice-draw-clear-btn:hover { background: var(--red, #ed4245); color: #fff; }
+.voice-draw-close-btn:hover { background: var(--bg-lighter, #40444b); }
 .voice-draw-close-btn { border-radius: 50%; width: 24px; height: 24px; padding: 0; }
 
 .voice-video-grid {
