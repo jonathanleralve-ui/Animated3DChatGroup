@@ -1429,6 +1429,24 @@ input { font-family: inherit; }
   cursor: pointer;
 }
 
+.voice-panel-bg {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+.voice-panel-bg.has-image::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+}
+
+.model-framing-group--voicebg { --group-accent: #57F287; }
+
 .trail-style-select:focus {
   outline: none;
   border-color: var(--group-accent, var(--blurple));
@@ -2059,6 +2077,7 @@ input { font-family: inherit; }
   display: flex;
   flex-direction: column;
   align-items: center;
+  position: relative;
 }
 
 .voice-resize-handle {
@@ -2086,6 +2105,18 @@ input { font-family: inherit; }
   background: var(--blurple);
 }
 
+#voice-panel {
+    position: relative;
+}
+
+#draw-canvas {
+    position: absolute;
+    inset: 0;          /* top:0 right:0 bottom:0 left:0 */
+    width: 100%;
+    height: 100%;
+    z-index: 1;
+}
+
 .voice-panel-top {
   display: flex;
   justify-content: center;
@@ -2108,6 +2139,7 @@ input { font-family: inherit; }
   background: var(--bg-lighter, #1e1f22);
   padding: 8px 10px;
   border-radius: 24px;
+  z-index: 1;
 }
 
 .btn-icon-round {
@@ -2181,6 +2213,83 @@ input { font-family: inherit; }
 }
 .voice-chip .avatar { width: 24px; height: 24px; font-size: 11px; }
 .voice-chip-icon { font-size: 12px; }
+
+/* Voice whiteboard */
+.voice-draw-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  background: rgba(30, 31, 34, 0.55);
+}
+.voice-draw-layer.hidden { display: none; }
+
+.voice-draw-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  cursor: crosshair;
+  touch-action: none;
+}
+
+.voice-draw-toolbar {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--bg-lighter, #1e1f22);
+  padding: 6px 10px;
+  border-radius: 20px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+}
+
+.voice-draw-swatches, .voice-draw-sizes { display: flex; align-items: center; gap: 6px; }
+
+.voice-draw-swatch {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  padding: 0;
+}
+.voice-draw-swatch.selected { border-color: var(--text-bright, #fff); }
+
+
+.voice-draw-size-btn {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+}
+.voice-draw-size-btn span {
+  display: block;
+  border-radius: 150%;
+  background: var(--text-normal, #dbdee1);
+}
+.voice-draw-size-btn.selected { border-color: var(--blurple, #5865f2); }
+
+.voice-draw-clear-btn, .voice-draw-close-btn {
+  border: none;
+  background: var(--bg-light, #313338);
+  color: var(--text-normal, #dbdee1);
+  border-radius: 14px;
+  padding: 5px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.voice-draw-clear-btn:hover, .voice-draw-close-btn:hover { background: var(--bg-lighter, #40444b); }
+.voice-draw-close-btn { border-radius: 50%; width: 24px; height: 24px; padding: 0; }
 
 .voice-video-grid {
   display: flex;

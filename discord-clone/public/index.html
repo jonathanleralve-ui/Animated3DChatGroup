@@ -121,6 +121,7 @@
   <div class="chat-area">
     <!-- Voice bar: shown whenever connected to a voice channel in the group currently open -->
     <div id="voice-panel" class="voice-panel hidden">
+      <div id="voice-panel-bg" class="voice-panel-bg"></div>
       <div id="voice-panel-scroll" class="voice-panel-scroll">
         <div id="voice-participants" class="voice-participants"></div>
         <div id="voice-video-grid" class="voice-video-grid hidden"></div>
@@ -129,6 +130,7 @@
       <div class="voice-panel-top">
         <div id="voice-controls" class="voice-controls hidden">
           <button class="btn-icon-round" id="voice-share-btn" title="Share Screen">🖥️</button>
+          <button class="btn-icon-round" id="voice-draw-btn" title="Draw">🎨</button>
           <button class="btn-icon-round" id="voice-cam-btn" title="Camera">📹</button>
           <button class="btn-leave" id="voice-leave-btn">LEAVE CALL</button>
           <button class="btn-icon-round" id="voice-mute-btn" title="Mute">🎙️</button>
@@ -187,6 +189,7 @@
               <button class="profile-tab active" data-tab="general" type="button"><span class="profile-tab-icon">👤</span>Profile</button>
               <button class="profile-tab" data-tab="avatar3d" type="button"><span class="profile-tab-icon">🧊</span>3D Voice Avatar</button>
               <button class="profile-tab" data-tab="cursor" type="button"><span class="profile-tab-icon">🖱️</span>Cursor</button>
+              <button class="profile-tab" data-tab="voicebg" type="button"><span class="profile-tab-icon">🖼️</span>Voice Background</button>
             </nav>
           </aside>
 
@@ -407,6 +410,31 @@
               </section>
             </div>
 
+            <div class="profile-tab-panel" data-tab-panel="voicebg">
+              <section class="profile-section">
+                <p class="profile-panel-sub profile-section-sub">Customize the background behind participants in voice channels.</p>
+
+                <div class="profile-model-framing">
+                  <div class="model-framing-group model-framing-group--voicebg collapsed">
+                    <div class="model-framing-group-header">
+                      <span class="model-framing-group-icon">🖼️</span>
+                      <p class="model-framing-group-title">Voice Background</p>
+                      <span class="model-framing-group-chevron">›</span>
+                    </div>
+                    <div class="model-framing-group-body">
+                      <p class="model-framing-hint">Upload an image to replace the default solid background.</p>
+                      <p class="model-framing-hint">Current: <span id="edit-profile-voicebg-filename" class="model-framing-value">Default</span></p>
+                    </div>
+                    <div class="model-framing-group-footer">
+                      <input type="file" id="edit-profile-voicebg-file" accept="image/*" class="hidden" />
+                      <button class="btn-secondary btn-small" id="edit-profile-voicebg-upload-btn" type="button">Upload Background</button>
+                      <button class="btn-secondary btn-small hidden" id="edit-profile-voicebg-remove-btn" type="button">Remove</button>
+                    </div>
+                  </div>
+                </div>
+              </section>
+            </div>
+
             <div class="auth-error" id="edit-profile-error"></div>
             <div class="profile-actions">
               <button class="btn-secondary" id="edit-profile-cancel">Cancel</button>
@@ -603,6 +631,7 @@
 <script src="/js/utils.js"></script>
 <script src="/js/api.js"></script>
 <script src="/js/voice.js"></script>
+<script src="/js/voice-draw.js"></script>
 <script src="/js/emoji.js"></script>
 <script src="/js/chat.js"></script>
 <script src="/js/friends.js"></script>
@@ -614,6 +643,7 @@
 <script src="/js/cursor-custom.js"></script>
 <script src="/js/cursor-click.js"></script>
 <script src="/js/cursor-click-upload.js"></script>
+<script src="/js/voice-background.js"></script>
 <script src="/js/app.js"></script>
 </body>
 </html>

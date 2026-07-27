@@ -42,6 +42,7 @@ const App = (() => {
 
     SocketClient.connect();
     VoiceChat.init(AppState.socket, AppState.me);
+    VoiceDraw.init(AppState.socket);
     initVoiceControls();
 
     Friends.refresh();
@@ -53,6 +54,7 @@ const App = (() => {
     $('#voice-leave-btn').addEventListener('click', () => VoiceChat.leaveCurrent());
     $('#voice-mute-btn').addEventListener('click', () => VoiceChat.toggleMute());
     $('#voice-share-btn').addEventListener('click', () => VoiceChat.toggleScreenShare());
+    $('#voice-draw-btn').addEventListener('click', () => VoiceDraw.toggle());
   }
 
   function init() {

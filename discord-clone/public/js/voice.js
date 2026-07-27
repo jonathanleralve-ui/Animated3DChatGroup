@@ -119,6 +119,7 @@ const VoiceChat = (() => {
       Object.keys(peers).forEach(teardownPeer);
       stopSpeakingDetection('self');
       disposeAvatar3D('self');
+      if (typeof VoiceDraw !== 'undefined') VoiceDraw.setActiveChannel(null);
     });
   }
 
@@ -170,6 +171,7 @@ const VoiceChat = (() => {
     $('#edit-profile-panel').classList.add('hidden');
 
     if (localMicStream) startSpeakingDetection('self', localMicStream);
+    if (typeof VoiceDraw !== 'undefined') VoiceDraw.setActiveChannel(channelId);
 
     if (typeof Groups !== 'undefined') Groups.refreshChannelHighlight();
     refreshPanelForGroup(openGroupId);
@@ -184,6 +186,7 @@ const VoiceChat = (() => {
     Object.keys(peers).forEach(teardownPeer);
     stopSpeakingDetection('self');
     disposeAvatar3D('self');
+    if (typeof VoiceDraw !== 'undefined') VoiceDraw.setActiveChannel(null);
 
     if (localMicStream) {
       localMicStream.getTracks().forEach((t) => t.stop());

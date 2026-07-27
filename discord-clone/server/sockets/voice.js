@@ -6,6 +6,22 @@
 // channelId -> Map of socketId -> { userId, displayName, avatarColor, avatarUrl, nameColor, sharing }
 const voiceRooms = new Map();
 
+// channelId -> Map of strokeId -> { color, size, points: [{x,y}] } - the
+// shared whiteboard for that voice channel. Kept in memory only (same
+// lifetime as voiceRooms) and wiped once the channel empties out, same as
+// the rest of the call state.
+const voiceDraw = new Map();
+const MAX_STROKES_PER_CHANNEL = 400; // oldest strokes drop off past this to bound memory
+
+function drawState(channelId) {
+  if (!voiceDraw.has(channelId)) voiceDraw.set(channelId, new Map());
+  return voiceDraw.get(channelId);
+}
+
+function getDrawStrokes(channelId) {
+  return Array.from(drawState(channelId).entries()).map(([id, s]) => ({ id, ...s }));
+}
+
 function voiceRoom(channelId) {
   if (!voiceRooms.has(channelId)) voiceRooms.set(channelId, new Map());
   return voiceRooms.get(channelId);
@@ -60,7 +76,10 @@ function leaveVoiceChannel(io, socket, channelId) {
     broadcastRoster(io, channelId);
   }
   if (socket.currentVoiceChannel === channelId) socket.currentVoiceChannel = null;
-  if (room.size === 0) voiceRooms.delete(channelId);
+  if (room.size === 0) {
+    voiceRooms.delete(channelId);
+    voiceDraw.delete(channelId);
+  }
 }
 
 function registerVoiceHandlers(io, socket, db) {
@@ -96,6 +115,8 @@ function registerVoiceHandlers(io, socket, db) {
 
       // Tell the joining client who is already in the channel, so it can initiate connections to each
       socket.emit('voice:existing-peers', { peers: voicePeerList(cid) });
+      // ...and hand them whatever's already been drawn on this channel's whiteboard
+      socket.emit('voice:draw-state', { strokes: getDrawStrokes(cid) });
 
       const info = {
         userId: uid, displayName: user.display_name, avatarColor: user.avatar_color, avatarUrl: user.avatar_url,
@@ -163,6 +184,40 @@ function registerVoiceHandlers(io, socket, db) {
     const cid = Number(channelId);
     if (cid !== socket.currentVoiceChannel) return;
     socket.to(`voice:${cid}`).emit('voice:gaze', { socketId: socket.id, dx, dy });
+  });
+
+  // Shared whiteboard: relay a batch of freehand points to the rest of the
+  // channel and append them to the stored stroke so late joiners can catch
+  // up via voice:draw-state above.
+  socket.on('voice:draw-point', ({ channelId, strokeId, color, size, points }) => {
+    const cid = Number(channelId);
+    if (cid !== socket.currentVoiceChannel || !strokeId || !Array.isArray(points) || points.length === 0) return;
+
+    const state = drawState(cid);
+    let stroke = state.get(strokeId);
+    if (!stroke) {
+      if (state.size >= MAX_STROKES_PER_CHANNEL) {
+        const oldestId = state.keys().next().value;
+        state.delete(oldestId);
+      }
+      stroke = { color: String(color || '#ffffff'), size: Number(size) || 4, points: [] };
+      state.set(strokeId, stroke);
+    }
+    const clean = points
+      .filter((p) => p && typeof p.x === 'number' && typeof p.y === 'number')
+      .map((p) => ({ x: Math.min(1, Math.max(0, p.x)), y: Math.min(1, Math.max(0, p.y)) }));
+    stroke.points.push(...clean);
+
+    socket.to(`voice:${cid}`).emit('voice:draw-point', {
+      strokeId, color: stroke.color, size: stroke.size, points: clean
+    });
+  });
+
+  socket.on('voice:draw-clear', ({ channelId }) => {
+    const cid = Number(channelId);
+    if (cid !== socket.currentVoiceChannel) return;
+    voiceDraw.delete(cid);
+    io.to(`voice:${cid}`).emit('voice:draw-clear');
   });
 }
 
