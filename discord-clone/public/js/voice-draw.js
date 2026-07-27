@@ -102,7 +102,12 @@ const VoiceDraw = (() => {
 
   function mount() {
     if (layer) return;
-    const host = $('#voice-panel-scroll');
+    // Mounted on the whole panel (not just the scrollable participants/video
+    // area) so the top controls bar - Leave Call, Mute, Draw toggle, etc. -
+    // is drawable too. It's still safe: the layer stays pointer-events:none
+    // by default so those buttons work normally, and the resize handle has
+    // a higher z-index so it's always draggable even with a tool armed.
+    const host = $('#voice-panel');
     if (!host) return;
 
     layer = document.createElement('div');

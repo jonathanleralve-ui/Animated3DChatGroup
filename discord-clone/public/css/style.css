@@ -2122,6 +2122,8 @@ input { font-family: inherit; }
   justify-content: center;
   flex-shrink: 0;
   padding-top: 10px;
+  position: relative; /* stacks above .voice-draw-layer (z-index 3) - controls always stay on top */
+  z-index: 4;
 }
 
 .voice-panel-label {
