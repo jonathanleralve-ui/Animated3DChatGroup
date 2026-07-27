@@ -54,7 +54,7 @@ const App = (() => {
     $('#voice-leave-btn').addEventListener('click', () => VoiceChat.leaveCurrent());
     $('#voice-mute-btn').addEventListener('click', () => VoiceChat.toggleMute());
     $('#voice-share-btn').addEventListener('click', () => VoiceChat.toggleScreenShare());
-    $('#voice-draw-btn').addEventListener('click', () => VoiceDraw.toggle());
+    $('#voice-draw-btn').addEventListener('click', () => VoiceDraw.toggleToolbar());
   }
 
   function init() {

@@ -2214,20 +2214,16 @@ input { font-family: inherit; }
 .voice-chip .avatar { width: 24px; height: 24px; font-size: 11px; }
 .voice-chip-icon { font-size: 12px; }
 
-/* Voice whiteboard */
+/* Voice whiteboard - always mounted while in a voice channel. The layer
+   itself never blocks clicks (pointer-events: none) so the panel
+   underneath stays usable; only the canvas toggles pointer-events on when
+   a drawing tool is armed (see .voice-draw-canvas below), and the toolbar
+   opts itself back in so its buttons stay clickable. */
 .voice-draw-layer {
   position: absolute;
   inset: 0;
   z-index: 3;
-  background: rgba(20, 21, 24, 0.6);
-  backdrop-filter: blur(1px);
-  animation: voice-draw-fade-in 0.15s ease-out;
-}
-.voice-draw-layer.hidden { display: none; }
-
-@keyframes voice-draw-fade-in {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  pointer-events: none;
 }
 
 .voice-draw-canvas {
@@ -2235,12 +2231,13 @@ input { font-family: inherit; }
   inset: 0;
   width: 100%;
   height: 100%;
-  cursor: crosshair;
+  pointer-events: none; /* toggled to 'auto' in JS whenever a drawing tool is armed */
   touch-action: none;
 }
 .voice-draw-canvas.tool-eraser { cursor: none; }
 .voice-draw-canvas.tool-text { cursor: text; }
 .voice-draw-canvas.tool-shape { cursor: crosshair; }
+.voice-draw-canvas:not(.tool-eraser):not(.tool-text):not(.tool-shape) { cursor: crosshair; }
 
 /* Dashed circle that tracks the pointer showing the eraser's radius */
 .voice-draw-eraser-cursor {
@@ -2259,6 +2256,7 @@ input { font-family: inherit; }
 .voice-draw-text-input {
   position: absolute;
   z-index: 5;
+  pointer-events: auto;
   background: transparent;
   border: 1px dashed rgba(255, 255, 255, 0.5);
   border-radius: 4px;
@@ -2277,6 +2275,7 @@ input { font-family: inherit; }
   display: flex;
   align-items: center;
   gap: 8px;
+  pointer-events: auto;
   background: rgba(30, 31, 34, 0.9);
   backdrop-filter: blur(10px);
   padding: 6px 8px;
@@ -2287,6 +2286,7 @@ input { font-family: inherit; }
   overflow-x: auto;
   animation: voice-draw-toolbar-in 0.18s cubic-bezier(0.2, 0.8, 0.3, 1);
 }
+.voice-draw-toolbar.hidden { display: none; }
 
 @keyframes voice-draw-toolbar-in {
   from { opacity: 0; transform: translate(-50%, -6px) scale(0.96); }
@@ -2386,7 +2386,7 @@ input { font-family: inherit; }
 }
 .voice-draw-icon-btn:hover { background: rgba(255, 255, 255, 0.08); }
 
-.voice-draw-clear-btn, .voice-draw-close-btn {
+.voice-draw-clear-btn {
   border: none;
   background: var(--bg-light, #313338);
   color: var(--text-normal, #dbdee1);
@@ -2398,8 +2398,6 @@ input { font-family: inherit; }
   transition: background 0.12s ease;
 }
 .voice-draw-clear-btn:hover { background: var(--red, #ed4245); color: #fff; }
-.voice-draw-close-btn:hover { background: var(--bg-lighter, #40444b); }
-.voice-draw-close-btn { border-radius: 50%; width: 24px; height: 24px; padding: 0; }
 
 .voice-video-grid {
   display: flex;

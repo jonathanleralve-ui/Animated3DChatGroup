@@ -1,19 +1,24 @@
-// Freehand whiteboard overlaid on the voice panel. Strokes are stored as
-// fractional (0..1) coordinates relative to the overlay so they stay correct
-// across resizes (panel drag, window resize, streaming toggling the layout).
-// Fully synced over the socket to everyone else in the same voice channel -
-// new joiners get the current board via 'voice:draw-state', same pattern as
-// 'voice:existing-peers' in voice.js.
+// Always-on freehand whiteboard layered over the voice panel. Unlike a
+// classic "open the whiteboard" overlay, this is mounted for the whole
+// duration a user is in a voice channel and stays pointer-transparent by
+// default, so the panel underneath (mute button, avatars, tiles) keeps
+// working normally. Picking any drawing tool from the small floating
+// toolbar "arms" the canvas to capture the mouse; picking the Select tool
+// (the default) disarms it again. Strokes themselves are always rendered
+// for everyone in the channel, whether or not that person currently has a
+// drawing tool armed - only the ability to draw is gated, never the
+// ability to see.
 //
-// Tools: pen, eraser (true pixel erase via destination-out compositing),
-// line / rect / ellipse (drag-to-preview shapes), and text (click to place
-// a label). Every committed mark is a "stroke" with a `tool` field so
-// remote clients render it identically; shapes/text are sent as one
-// complete stroke on release, pen/eraser stream points as you draw.
+// Strokes are stored as fractional (0..1) coordinates relative to the
+// overlay so they stay correct across resizes (panel drag, window resize,
+// streaming toggling the layout). Synced over the socket to everyone else
+// in the same voice channel - new joiners get the current board via
+// 'voice:draw-state', same pattern as 'voice:existing-peers' in voice.js.
 const VoiceDraw = (() => {
   const COLORS = ['#ffffff', '#ed4245', '#f0b232', '#3ba55d', '#5865f2', '#eb459e'];
   const SIZES = [2, 5, 10, 18];
   const TOOLS = [
+    { id: 'select', label: 'Select (click through to the call)', icon: '↖' },
     { id: 'pen', label: 'Pen', icon: '✏️' },
     { id: 'eraser', label: 'Eraser', icon: '🧽' },
     { id: 'line', label: 'Line', icon: '╱' },
@@ -24,14 +29,14 @@ const VoiceDraw = (() => {
 
   let socket = null;
   let channelId = null;
-  let isOpen = false;
 
   let layer = null, canvas = null, ctx = null;
   let strokes = new Map(); // strokeId -> { tool, color, size, points: [{x,y}], text? }
 
-  let tool = 'pen';
+  let tool = 'select';
   let color = COLORS[0];
   let size = SIZES[1];
+  let toolbarOpen = false;
 
   let drawing = false;
   let activeStrokeId = null;
@@ -40,10 +45,10 @@ const VoiceDraw = (() => {
 
   let shapeStart = null;   // {x,y} fraction, set on pointerdown for line/rect/ellipse
   let previewRaf = null;
-  let lastPointerEvent = null;
 
   let ownStrokeStack = []; // strokeIds created by this client this session, for undo
   let textInput = null;    // active inline text-entry element, if any
+  let resizeObserver = null;
 
   function $(sel) { return document.querySelector(sel); }
   function uid() { return `${socket.id}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`; }
@@ -77,42 +82,20 @@ const VoiceDraw = (() => {
     });
   }
 
-  // Called by VoiceChat on join/leave so this module knows which room to
-  // scope its socket traffic to, and so the board resets on channel switch.
+  // Called by VoiceChat on join/leave. The board is mounted (and strokes
+  // rendered) for the entire time a channel is active - there is no
+  // separate open/close step. Leaving the channel tears everything down.
   function setActiveChannel(cid) {
+    const changingChannel = channelId !== cid;
     channelId = cid;
+    if (!cid) {
+      teardown();
+      return;
+    }
     strokes.clear();
     ownStrokeStack = [];
-    if (!cid) closeOverlay();
-    else if (layer) clearCanvas();
-  }
-
-  function toggle() {
-    if (!channelId) return;
-    isOpen ? closeOverlay() : openOverlay();
-  }
-
-  function openOverlay() {
-    if (!channelId) return;
+    if (changingChannel) { setTool('select'); setToolbarOpen(false); }
     mount();
-    layer.classList.remove('hidden');
-    layer.classList.remove('closing');
-    isOpen = true;
-    updateToggleButton();
-    resizeCanvas();
-    redrawAll();
-  }
-
-  function closeOverlay() {
-    cancelTextInput();
-    if (layer) layer.classList.add('hidden');
-    isOpen = false;
-    updateToggleButton();
-  }
-
-  function updateToggleButton() {
-    const btn = $('#voice-draw-btn');
-    if (btn) btn.classList.toggle('active-danger', isOpen);
   }
 
   // ============ MOUNTING ============
@@ -124,7 +107,7 @@ const VoiceDraw = (() => {
 
     layer = document.createElement('div');
     layer.id = 'voice-draw-layer';
-    layer.className = 'voice-draw-layer hidden';
+    layer.className = 'voice-draw-layer';
 
     canvas = document.createElement('canvas');
     canvas.className = 'voice-draw-canvas';
@@ -139,8 +122,42 @@ const VoiceDraw = (() => {
 
     ctx = canvas.getContext('2d');
     wireCanvasEvents();
+    applyToolState();
+    applyToolbarVisibility();
 
-    new ResizeObserver(() => { resizeCanvas(); redrawAll(); }).observe(layer);
+    resizeObserver = new ResizeObserver(() => { resizeCanvas(); redrawAll(); });
+    resizeObserver.observe(layer);
+    resizeCanvas();
+  }
+
+  function teardown() {
+    cancelTextInput();
+    if (resizeObserver) { resizeObserver.disconnect(); resizeObserver = null; }
+    if (layer) { layer.remove(); layer = null; }
+    canvas = null; ctx = null;
+    drawing = false; activeStrokeId = null; shapeStart = null;
+    strokes.clear();
+    ownStrokeStack = [];
+  }
+
+  function applyToolbarVisibility() {
+    if (!layer) return;
+    layer.querySelector('.voice-draw-toolbar')?.classList.toggle('hidden', !toolbarOpen);
+    const btn = $('#voice-draw-btn');
+    if (btn) btn.classList.toggle('active-danger', toolbarOpen);
+    // Closing the toolbar also disarms drawing - can't leave the canvas
+    // capturing clicks with no way to see which tool is active.
+    if (!toolbarOpen && tool !== 'select') setTool('select');
+  }
+
+  function setToolbarOpen(open) {
+    toolbarOpen = open;
+    applyToolbarVisibility();
+  }
+
+  function toggleToolbar() {
+    if (!channelId) return;
+    setToolbarOpen(!toolbarOpen);
   }
 
   function toolButton(t) {
@@ -151,19 +168,32 @@ const VoiceDraw = (() => {
     btn.title = t.label;
     btn.textContent = t.icon;
     if (t.id === tool) btn.classList.add('selected');
-    btn.addEventListener('click', () => setTool(t.id, btn));
+    btn.addEventListener('click', () => setTool(t.id));
     return btn;
   }
 
-  function setTool(id, btnEl) {
+  // Arms/disarms canvas pointer capture. 'select' lets clicks fall through
+  // to the voice panel underneath (mute button, tiles, avatars); any other
+  // tool captures the pointer so you can draw.
+  function setTool(id) {
     cancelTextInput();
     tool = id;
-    layer.querySelectorAll('.voice-draw-tool-btn').forEach((el) => el.classList.remove('selected'));
-    (btnEl || layer.querySelector(`.voice-draw-tool-btn[data-tool="${id}"]`))?.classList.add('selected');
-    canvas.classList.toggle('tool-eraser', id === 'eraser');
-    canvas.classList.toggle('tool-text', id === 'text');
-    canvas.classList.toggle('tool-shape', id === 'line' || id === 'rect' || id === 'ellipse');
-    layer.querySelector('.voice-draw-eraser-cursor')?.classList.toggle('hidden', id !== 'eraser');
+    if (layer) {
+      layer.querySelectorAll('.voice-draw-tool-btn').forEach((el) => {
+        el.classList.toggle('selected', el.dataset.tool === id);
+      });
+      applyToolState();
+    }
+  }
+
+  function applyToolState() {
+    if (!canvas || !layer) return;
+    const armed = tool !== 'select';
+    canvas.style.pointerEvents = armed ? 'auto' : 'none';
+    canvas.classList.toggle('tool-eraser', tool === 'eraser');
+    canvas.classList.toggle('tool-text', tool === 'text');
+    canvas.classList.toggle('tool-shape', tool === 'line' || tool === 'rect' || tool === 'ellipse');
+    layer.querySelector('.voice-draw-eraser-cursor')?.classList.toggle('hidden', tool !== 'eraser');
   }
 
   function buildToolbar() {
@@ -257,14 +287,6 @@ const VoiceDraw = (() => {
     });
     actions.appendChild(clearBtn);
 
-    const closeBtn = document.createElement('button');
-    closeBtn.type = 'button';
-    closeBtn.className = 'voice-draw-close-btn';
-    closeBtn.textContent = '✕';
-    closeBtn.title = 'Close drawing (keeps the board for others)';
-    closeBtn.addEventListener('click', closeOverlay);
-    actions.appendChild(closeBtn);
-
     bar.appendChild(actions);
     return bar;
   }
@@ -316,10 +338,17 @@ const VoiceDraw = (() => {
 
   // Draws a stroke's ENTIRE path in one pass. Used for full repaints, where
   // partial (last-segment-only) rendering would leave strokes looking cut off.
+  //
+  // Points are stored as fractions of the layer's WIDTH for both x and y
+  // (not width/height independently). That means a single scale factor -
+  // dragging the resize handle to make the panel taller changes rect.height
+  // but not rect.width, so existing strokes keep their exact size and
+  // position and the extra room just appears as blank canvas below them,
+  // instead of the whole drawing stretching to fill the new height.
   function drawStrokeFull(stroke) {
     if (!ctx || !canvas || !layer) return;
     const rect = layer.getBoundingClientRect();
-    const w = rect.width, h = rect.height;
+    const u = rect.width;
 
     if (stroke.tool === 'text') {
       const p = stroke.points[0];
@@ -329,7 +358,7 @@ const VoiceDraw = (() => {
       ctx.fillStyle = stroke.color;
       ctx.font = `600 ${(stroke.size || 5) * 2.2 + 8}px "gg sans", -apple-system, sans-serif`;
       ctx.textBaseline = 'top';
-      ctx.fillText(stroke.text || '', p.x * w, p.y * h);
+      ctx.fillText(stroke.text || '', p.x * u, p.y * u);
       ctx.restore();
       return;
     }
@@ -339,7 +368,7 @@ const VoiceDraw = (() => {
     applyStrokeStyle(ctx, stroke);
     ctx.beginPath();
     stroke.points.forEach((p, i) => {
-      const x = p.x * w, y = p.y * h;
+      const x = p.x * u, y = p.y * u;
       if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
     });
     ctx.stroke();
@@ -351,15 +380,15 @@ const VoiceDraw = (() => {
   function drawStrokeIncremental(stroke) {
     if (!ctx || !canvas || !layer || stroke.tool === 'text' || stroke.points.length < 2) return;
     const rect = layer.getBoundingClientRect();
-    const w = rect.width, h = rect.height;
+    const u = rect.width;
     ctx.save();
     applyStrokeStyle(ctx, stroke);
     ctx.beginPath();
     const pts = stroke.points;
     const from = pts[pts.length - 2];
     const to = pts[pts.length - 1];
-    ctx.moveTo(from.x * w, from.y * h);
-    ctx.lineTo(to.x * w, to.y * h);
+    ctx.moveTo(from.x * u, from.y * u);
+    ctx.lineTo(to.x * u, to.y * u);
     ctx.stroke();
     ctx.restore();
   }
@@ -391,16 +420,22 @@ const VoiceDraw = (() => {
 
   // ============ POINTER INPUT ============
 
+  // x and y are both expressed as fractions of the layer's WIDTH (see the
+  // rendering functions above for why) - so x is bounded to the visible
+  // [0,1] range, but y only has a floor at 0. If the panel is shorter than
+  // it is wide, a point below the current bottom edge is still a valid,
+  // stable coordinate - it just isn't visible until the panel grows.
   function pointToFraction(e) {
     const rect = layer.getBoundingClientRect();
     return {
       x: Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width)),
-      y: Math.min(1, Math.max(0, (e.clientY - rect.top) / rect.height))
+      y: Math.max(0, (e.clientY - rect.top) / rect.width)
     };
   }
 
   function wireCanvasEvents() {
     canvas.addEventListener('pointerdown', (e) => {
+      if (tool === 'select') return; // shouldn't fire, pointer-events is none, but stay safe
       if (e.button !== undefined && e.button !== 0) return;
 
       if (tool === 'text') { startTextInput(e); return; }
@@ -424,7 +459,6 @@ const VoiceDraw = (() => {
     });
 
     canvas.addEventListener('pointermove', (e) => {
-      lastPointerEvent = e;
       moveEraserCursor(e);
 
       if (shapeStart) { scheduleShapePreview(e); return; }
@@ -507,7 +541,7 @@ const VoiceDraw = (() => {
     input.type = 'text';
     input.className = 'voice-draw-text-input';
     input.style.left = `${p.x * rect.width}px`;
-    input.style.top = `${p.y * rect.height}px`;
+    input.style.top = `${p.y * rect.width}px`;
     input.style.color = color;
     input.style.fontSize = `${size * 2.2 + 8}px`;
     input.placeholder = 'Type, then Enter';
@@ -568,5 +602,5 @@ const VoiceDraw = (() => {
     pendingPoints = [];
   }
 
-  return { init, setActiveChannel, toggle };
+  return { init, setActiveChannel, toggleToolbar };
 })();

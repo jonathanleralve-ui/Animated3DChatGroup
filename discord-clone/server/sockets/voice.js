@@ -216,9 +216,13 @@ function registerVoiceHandlers(io, socket, db) {
       if (typeof text === 'string') stroke.text = text.slice(0, 200);
       state.set(strokeId, stroke);
     }
+    // x is a fraction of panel width, bounded to the visible [0,1] range.
+    // y is ALSO a fraction of panel width (not height) - see voice-draw.js -
+    // so a panel taller than it is wide is completely normal; only floor it
+    // at 0 and cap it generously to guard against bad/malicious input.
     const clean = points
       .filter((p) => p && typeof p.x === 'number' && typeof p.y === 'number')
-      .map((p) => ({ x: Math.min(1, Math.max(0, p.x)), y: Math.min(1, Math.max(0, p.y)) }));
+      .map((p) => ({ x: Math.min(1, Math.max(0, p.x)), y: Math.min(20, Math.max(0, p.y)) }));
     stroke.points.push(...clean);
 
     socket.to(`voice:${cid}`).emit('voice:draw-point', {
