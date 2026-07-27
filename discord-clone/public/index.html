@@ -140,8 +140,7 @@
     </div>
 
     <div id="empty-state" class="empty-state">
-      <div class="empty-icon">👋</div>
-      <h2>Select a friend or channel to start chatting</h2>
+      <div class="empty-icon"></div>
     </div>
 
     <div id="add-friend-panel" class="add-friend-panel hidden">
@@ -227,7 +226,7 @@
                   <span>Drag to rotate &bull; right-drag to reposition &bull; scroll/pinch to zoom</span>
                 </div>
 
-                <div class="model-framing-group model-framing-group--framing">
+                <div class="model-framing-group model-framing-group--framing collapsed">
                   <div class="model-framing-group-header">
                     <span class="model-framing-group-icon">🔍</span>
                     <p class="model-framing-group-title">Framing</p>
@@ -350,7 +349,7 @@
                 <p class="profile-panel-sub profile-section-sub">Personalize your mouse cursor and add a glowing trail effect.</p>
 
                 <div class="profile-model-framing">
-                  <div class="model-framing-group model-framing-group--cursortrail">
+                  <div class="model-framing-group model-framing-group--cursortrail collapsed">
                     <div class="model-framing-group-header">
                       <span class="model-framing-group-icon">✨</span>
                       <p class="model-framing-group-title">Cursor Trail</p>
@@ -362,10 +361,17 @@
                     </div>
                     <div class="model-framing-group-body">
                       <p class="model-framing-hint">Adds a soft glowing trail that follows your cursor around the app.</p>
+                      <div class="model-framing-field">
+                        <label class="model-framing-label" for="edit-profile-cursor-trail-style">Trail Style</label>
+                        <select id="edit-profile-cursor-trail-style" class="trail-style-select">
+                          <option value="sparkle">Sparkle</option>
+                          <option value="comet">Comet Line</option>
+                        </select>
+                      </div>
                     </div>
                   </div>
 
-                  <div class="model-framing-group model-framing-group--customcursor">
+                  <div class="model-framing-group model-framing-group--customcursor collapsed">
                     <div class="model-framing-group-header">
                       <span class="model-framing-group-icon">🖱️</span>
                       <p class="model-framing-group-title">Custom Cursor</p>
@@ -382,7 +388,7 @@
                     </div>
                   </div>
 
-                  <div class="model-framing-group model-framing-group--clickimages">
+                  <div class="model-framing-group model-framing-group--clickimages collapsed">
                     <div class="model-framing-group-header">
                       <span class="model-framing-group-icon">🖼️</span>
                       <p class="model-framing-group-title">Click Images</p>

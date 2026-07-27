@@ -1418,6 +1418,22 @@ input { font-family: inherit; }
   cursor: pointer;
 }
 
+.trail-style-select {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg-darkest);
+  color: var(--text-normal);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.trail-style-select:focus {
+  outline: none;
+  border-color: var(--group-accent, var(--blurple));
+}
+
 .model-framing-group-switch {
   margin-left: auto;
   position: relative;
