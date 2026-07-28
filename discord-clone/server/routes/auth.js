@@ -34,6 +34,7 @@ function publicUser(u) {
     avatarModelBlinkIntervalMax: u.avatar_model_blink_interval_max,
     avatarModelBlinkEnabled: u.avatar_model_blink_enabled,
     avatarModelBlinkShapeKeys: u.avatar_model_blink_shape_keys,
+    avatarModelMouthShapeKeys: u.avatar_model_mouth_shape_keys,
     avatarModelLookEnabled: u.avatar_model_look_enabled,
     bannerUrl: u.banner_url,
     bannerZoom: u.banner_zoom,
@@ -125,6 +126,7 @@ router.patch('/me', auth, async (req, res) => {
       avatarModelMouthIntensity, avatarModelVoiceStart, avatarModelVoiceMax,
       avatarModelBlinkIntensity, avatarModelBlinkIntervalMin, avatarModelBlinkIntervalMax, avatarModelBlinkEnabled,
       avatarModelBlinkShapeKeys,
+      avatarModelMouthShapeKeys,
       avatarModelLookEnabled,
       bannerUrl, bannerZoom, bannerOffsetX, bannerOffsetY
     } = req.body || {};
@@ -276,6 +278,18 @@ router.patch('/me', auth, async (req, res) => {
         return res.status(400).json({ error: 'Blink shape key list is too long (200 characters max)' });
       }
       updates.push(`avatar_model_blink_shape_keys = $${idx++}`);
+      values.push(keys);
+    }
+
+    // Same idea as blink shape keys above, but for which shape key(s)
+    // drive the mouth-opening lip-sync animation instead of the built-in
+    // auto-detection ('あ', 'mouth', 'open', etc.). Empty means auto-detect.
+    if (avatarModelMouthShapeKeys !== undefined) {
+      const keys = String(avatarModelMouthShapeKeys).trim();
+      if (keys.length > 200) {
+        return res.status(400).json({ error: 'Mouth shape key list is too long (200 characters max)' });
+      }
+      updates.push(`avatar_model_mouth_shape_keys = $${idx++}`);
       values.push(keys);
     }
 

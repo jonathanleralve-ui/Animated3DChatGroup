@@ -58,6 +58,10 @@ const Profile = (() => {
   // shape keys don't match anything in the built-in auto-detect list
   // (e.g. unusual or non-English names). Empty = auto-detect as before.
   let selectedBlinkShapeKeys = '';
+  // Manual override for which shape key(s) drive the mouth-opening lip-sync
+  // animation - same idea as selectedBlinkShapeKeys above, but for mouth
+  // morphs instead of eye morphs. Empty = auto-detect as before.
+  let selectedMouthShapeKeys = '';
   // Head/eye gaze tracking toggle. Default matches avatar3d.js's default.
   let selectedLookEnabled = true;
 
@@ -214,6 +218,7 @@ const Profile = (() => {
       blinkIntervalMax: selectedBlinkIntervalMax,
       blinkEnabled: selectedBlinkEnabled,
       blinkShapeKeys: selectedBlinkShapeKeys,
+      mouthShapeKeys: selectedMouthShapeKeys,
       lookAtCursor: selectedLookEnabled,
       onReady: ({ shapeKeyNames } = {}) => {
         box.classList.remove('model-preview-loading');
@@ -261,6 +266,7 @@ const Profile = (() => {
     $('#edit-profile-model-mouth-value').textContent = `${Math.round(selectedMouthIntensity * 100)}%`;
     $('#edit-profile-model-voicestart-value').textContent = `${Math.round(selectedVoiceStart)}%`;
     $('#edit-profile-model-voicemax-value').textContent = `${Math.round(selectedVoiceMax)}%`;
+    $('#edit-profile-model-mouth-shapekeys-input').value = selectedMouthShapeKeys;
   }
 
   function applyMouthIntensityFromSlider(value) {
@@ -293,10 +299,17 @@ const Profile = (() => {
     selectedMouthIntensity = 0.5;
     selectedVoiceStart = 5;
     selectedVoiceMax = 59;
+    selectedMouthShapeKeys = '';
     renderLipSyncSliders();
     if (modelPreviewInstance) {
       modelPreviewInstance.setLipSyncSettings({ mouthIntensity: selectedMouthIntensity, voiceStart: selectedVoiceStart, voiceMax: selectedVoiceMax });
+      modelPreviewInstance.setMouthShapeKeys(selectedMouthShapeKeys);
     }
+  }
+
+  function applyMouthShapeKeysFromInput(value) {
+    selectedMouthShapeKeys = value;
+    if (modelPreviewInstance) modelPreviewInstance.setMouthShapeKeys(selectedMouthShapeKeys);
   }
 
   function renderBlinkSliders() {
@@ -386,30 +399,57 @@ const Profile = (() => {
     return EYE_RELATED_KEYWORDS.some((kw) => lower.includes(kw.toLowerCase()));
   }
 
+  // Same idea as EYE_RELATED_KEYWORDS above, but matching findShapeKeys()'s
+  // default mouth-morph name list, so the mouth shape-key field's
+  // autocomplete only surfaces mouth-related morphs instead of also
+  // suggesting eye/eyebrow ones.
+  const MOUTH_RELATED_KEYWORDS = [
+    'あ', 'い', 'う', 'え', 'お', 'mouth', 'open', '口', '開',
+    'わ', 'ω', 'にやり', 'にっこり', '歯', 'ぺろ', 'てへ',
+  ];
+
+  function isMouthRelatedShapeKey(name) {
+    if (SHAPE_KEY_TRANSLATIONS.mouth[name]) return true;
+    const lower = name.toLowerCase();
+    return MOUTH_RELATED_KEYWORDS.some((kw) => lower.includes(kw.toLowerCase()));
+  }
+
   // Lists whatever shape keys the currently-loaded model actually has as
-  // <option>s in a <datalist>, so the blink shape-key field can offer
-  // autocomplete instead of the user having to guess an exact name (MMD
-  // models frequently use Japanese shape key names). Filtered down to
-  // eye/blink-related morphs only - this field only controls blinking, so
-  // mouth and eyebrow morphs would just be noise here. The field itself
-  // still needs the real (Japanese) name typed in to match the model, so
-  // `value` stays untranslated - only the visible `label` gets an English
-  // hint where one is known.
+  // <option>s in a <datalist>, so the blink/mouth shape-key fields can
+  // offer autocomplete instead of the user having to guess an exact name
+  // (MMD models frequently use Japanese shape key names). Each field is
+  // filtered down to its own related morphs only, so the other field's
+  // morphs don't show up as noise. The fields themselves still need the
+  // real (Japanese) name typed in to match the model, so `value` stays
+  // untranslated - only the visible `label` gets an English hint where
+  // one is known.
   function renderShapeKeyHint(names) {
     const datalist = $('#edit-profile-model-shapekeys-datalist');
-    if (!datalist) return;
-    datalist.innerHTML = '';
-    names.filter(isEyeRelatedShapeKey).forEach((name) => {
-      const opt = document.createElement('option');
-      opt.value = name;
-      // Most browsers render datalist options as "value — label" (e.g.
-      // Chrome shows the value on the left, the label greyed-out on the
-      // right), so the label only needs the translation itself - the
-      // Japanese original is already shown via `value`.
-      const translated = translateShapeKeyName(name);
-      opt.label = translated || name;
-      datalist.appendChild(opt);
-    });
+    const mouthDatalist = $('#edit-profile-model-mouth-shapekeys-datalist');
+    if (datalist) {
+      datalist.innerHTML = '';
+      names.filter(isEyeRelatedShapeKey).forEach((name) => {
+        const opt = document.createElement('option');
+        opt.value = name;
+        // Most browsers render datalist options as "value — label" (e.g.
+        // Chrome shows the value on the left, the label greyed-out on the
+        // right), so the label only needs the translation itself - the
+        // Japanese original is already shown via `value`.
+        const translated = translateShapeKeyName(name);
+        opt.label = translated || name;
+        datalist.appendChild(opt);
+      });
+    }
+    if (mouthDatalist) {
+      mouthDatalist.innerHTML = '';
+      names.filter(isMouthRelatedShapeKey).forEach((name) => {
+        const opt = document.createElement('option');
+        opt.value = name;
+        const translated = translateShapeKeyName(name);
+        opt.label = translated || name;
+        mouthDatalist.appendChild(opt);
+      });
+    }
   }
 
   function applyBlinkShapeKeysFromInput(value) {
@@ -655,6 +695,7 @@ const Profile = (() => {
     selectedBlinkIntervalMax = AppState.me.avatarModelBlinkIntervalMax ?? 4;
     selectedBlinkEnabled = AppState.me.avatarModelBlinkEnabled ?? true;
     selectedBlinkShapeKeys = AppState.me.avatarModelBlinkShapeKeys ?? '';
+    selectedMouthShapeKeys = AppState.me.avatarModelMouthShapeKeys ?? '';
     selectedLookEnabled = AppState.me.avatarModelLookEnabled ?? true;
     selectedBannerUrl = AppState.me.bannerUrl || null;
     pendingBannerFile = null;
@@ -711,6 +752,7 @@ const Profile = (() => {
         avatarModelMouthIntensity: selectedMouthIntensity, avatarModelVoiceStart: selectedVoiceStart, avatarModelVoiceMax: selectedVoiceMax,
         avatarModelBlinkIntensity: selectedBlinkIntensity, avatarModelBlinkIntervalMin: selectedBlinkIntervalMin, avatarModelBlinkIntervalMax: selectedBlinkIntervalMax, avatarModelBlinkEnabled: selectedBlinkEnabled,
         avatarModelBlinkShapeKeys: selectedBlinkShapeKeys,
+        avatarModelMouthShapeKeys: selectedMouthShapeKeys,
         avatarModelLookEnabled: selectedLookEnabled,
         bannerUrl, bannerZoom: selectedBannerZoom, bannerOffsetX: selectedBannerOffsetX, bannerOffsetY: selectedBannerOffsetY
       })
@@ -831,6 +873,7 @@ const Profile = (() => {
       selectedBlinkIntervalMax = 4;
       selectedBlinkEnabled = true;
       selectedBlinkShapeKeys = '';
+      selectedMouthShapeKeys = '';
       selectedLookEnabled = true;
       renderModelSection();
       disposeModelPreview();
@@ -842,6 +885,7 @@ const Profile = (() => {
     $('#edit-profile-model-voicestart-slider').addEventListener('input', (e) => applyVoiceStartFromSlider(e.target.value));
     $('#edit-profile-model-voicemax-slider').addEventListener('input', (e) => applyVoiceMaxFromSlider(e.target.value));
     $('#edit-profile-model-lipsync-reset').addEventListener('click', resetLipSync);
+    $('#edit-profile-model-mouth-shapekeys-input').addEventListener('input', (e) => applyMouthShapeKeysFromInput(e.target.value));
     $('#edit-profile-model-mic-test').addEventListener('click', toggleMicTest);
     $('#edit-profile-model-blink-toggle').addEventListener('change', (e) => applyBlinkToggle(e.target.checked));
     $('#edit-profile-model-blink-intensity-slider').addEventListener('input', (e) => applyBlinkIntensityFromSlider(e.target.value));
@@ -875,6 +919,7 @@ const Profile = (() => {
           selectedBlinkIntervalMax = 4;
           selectedBlinkEnabled = true;
           selectedBlinkShapeKeys = '';
+          selectedMouthShapeKeys = '';
           selectedLookEnabled = true;
           renderModelSection();
           mountModelPreview(selectedModelUrl);

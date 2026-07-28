@@ -99,6 +99,15 @@ function createAvatar3D(container, options = {}) {
         // Profile instead of blinking never triggering. Accepts either a
         // comma-separated string (as saved to the profile) or an array.
         blinkShapeKeys: initialBlinkShapeKeys = '',
+        // Same idea as blinkShapeKeys above, but for which shape key(s)
+        // drive the mouth-opening lip-sync animation. By default (empty)
+        // the built-in name-guessing in findShapeKeys() is used ('あ',
+        // 'mouth', 'open', etc.) - but plenty of models use shape key
+        // names that don't match any of those, so this lets the user type
+        // the exact name(s) themselves (comma-separated) in Edit Profile
+        // instead of lip sync never triggering. Accepts either a
+        // comma-separated string (as saved to the profile) or an array.
+        mouthShapeKeys: initialMouthShapeKeys = '',
     } = options;
 
     function parseShapeKeyNames(v) {
@@ -107,6 +116,7 @@ function createAvatar3D(container, options = {}) {
         return [];
     }
     let blinkShapeKeyNames = parseShapeKeyNames(initialBlinkShapeKeys);
+    let mouthShapeKeyNames = parseShapeKeyNames(initialMouthShapeKeys);
 
     // Same clamp ranges as the server (server/routes/auth.js).
     const MOUTH_INTENSITY_MIN = 0, MOUTH_INTENSITY_MAX = 1;
@@ -294,13 +304,14 @@ function createAvatar3D(container, options = {}) {
         scene.add(gridHelper);
     }
 
-    function findShapeKeys(mesh, customBlinkNames) {
-        const mouthNames = ['あ', 'い', 'う', 'え', 'お', 'a', 'i', 'u', 'e', 'o', 'mouth', 'open', '口', '開'];
+    function findShapeKeys(mesh, customBlinkNames, customMouthNames) {
+        const defaultMouthNames = ['あ', 'い', 'う', 'え', 'お', 'a', 'i', 'u', 'e', 'o', 'mouth', 'open', '口', '開'];
         const defaultBlinkNames = ['blink', 'eye', '目', 'まばたき', 'closeeye', 'eyelid', 'wink'];
         // If the user typed in specific shape key name(s) to use, match only
         // those (still a case-insensitive "contains" match, same as the
         // default list) instead of guessing from the built-in name list.
         const blinkNames = (customBlinkNames && customBlinkNames.length) ? customBlinkNames : defaultBlinkNames;
+        const mouthNames = (customMouthNames && customMouthNames.length) ? customMouthNames : defaultMouthNames;
 
         const foundMouth = [], foundBlink = [];
 
@@ -535,7 +546,7 @@ function createAvatar3D(container, options = {}) {
                 
                 scene.add(model);
                 
-                const result = findShapeKeys(mesh, blinkShapeKeyNames);
+                const result = findShapeKeys(mesh, blinkShapeKeyNames, mouthShapeKeyNames);
                 mouthKeys = result.mouthKeys;
                 blinkKeys = result.blinkKeys;
 
@@ -714,6 +725,21 @@ function createAvatar3D(container, options = {}) {
             blinkShapeKeyNames = parseShapeKeyNames(namesInput);
             blinkKeys.forEach((k) => { k.inf[k.index] = 0; });
             blinkKeys = model ? findShapeKeys(model, blinkShapeKeyNames).blinkKeys : [];
+        },
+        getMouthShapeKeys() {
+            return mouthShapeKeyNames.slice();
+        },
+        // Used by the "Mouth shape key(s)" field in Edit Profile so typing a
+        // name previews live against the mounted model, same idea as
+        // setBlinkShapeKeys(). Passing an empty value goes back to
+        // auto-detecting from the built-in name list. Any shape key(s)
+        // this was previously driving are reset to 0 first so switching
+        // away from one mid-speech doesn't leave a mouth stuck open.
+        setMouthShapeKeys(namesInput) {
+            mouthShapeKeyNames = parseShapeKeyNames(namesInput);
+            mouthKeys.forEach((k) => { k.inf[k.index] = 0; });
+            mouthKeys = model ? findShapeKeys(model, blinkShapeKeyNames, mouthShapeKeyNames).mouthKeys : [];
+            targetMouth = 0;
         },
         // Every shape key name the currently-loaded model actually has,
         // so Edit Profile can show the user something to pick from rather

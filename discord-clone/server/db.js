@@ -81,6 +81,7 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_model_blink_interval_min DOUBL
 ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_model_blink_interval_max DOUBLE PRECISION NOT NULL DEFAULT 4;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_model_blink_enabled BOOLEAN NOT NULL DEFAULT true;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_model_blink_shape_keys TEXT NOT NULL DEFAULT '';
+ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_model_mouth_shape_keys TEXT NOT NULL DEFAULT '';
 
 -- Head/eye gaze tracking toggle (follows the cursor around the screen).
 -- On by default, matching avatar3d.js's hardcoded default.
