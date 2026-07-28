@@ -432,6 +432,7 @@ const Groups = (() => {
     $('#create-channel-modal').classList.add('hidden');
     $('#rename-channel-modal').classList.add('hidden');
     $('#delete-channel-modal').classList.add('hidden');
+    $('#leave-group-modal').classList.add('hidden');
   }
 
   function showModal(id) {
@@ -443,6 +444,7 @@ const Groups = (() => {
     $('#create-channel-modal').classList.add('hidden');
     $('#rename-channel-modal').classList.add('hidden');
     $('#delete-channel-modal').classList.add('hidden');
+    $('#leave-group-modal').classList.add('hidden');
     $(`#${id}`).classList.remove('hidden');
   }
 
@@ -803,10 +805,16 @@ const Groups = (() => {
     finalizeSave(selectedGroupIconUrl || null);
   }
 
+  function openLeaveGroupModal() {
+    if (!AppState.activeGroup) return;
+    $('#leave-group-message').textContent = `Are you sure you want to leave "${AppState.activeGroup.name}"?`;
+    showModal('leave-group-modal');
+  }
+
   function leaveActiveGroup() {
     if (!AppState.activeGroup) return;
-    if (!confirm(`Leave "${AppState.activeGroup.name}"?`)) return;
     const groupId = AppState.activeGroup.id;
+    closeModals();
     Api.groups.leave(groupId)
       .then(() => {
         if (VoiceChat.isConnectedToGroup(groupId)) VoiceChat.leaveCurrent();
@@ -994,6 +1002,8 @@ const Groups = (() => {
 
     $('#group-add-member-btn').addEventListener('click', openAddMemberModal);
     $('#add-member-cancel').addEventListener('click', closeModals);
+    $('#add-member-close').addEventListener('click', closeModals);
+    Utils.makeModalDraggable($('#add-member-modal'));
     $('#add-member-search').addEventListener('input', () => {
       const query = $('#add-member-search').value.trim();
       $('#add-member-error').textContent = '';
@@ -1022,7 +1032,12 @@ const Groups = (() => {
     $('#delete-channel-confirm').addEventListener('click', confirmDeleteChannel);
 
     const leaveBtn = $('#group-leave-btn');
-    if (leaveBtn) leaveBtn.addEventListener('click', leaveActiveGroup);
+    if (leaveBtn) leaveBtn.addEventListener('click', openLeaveGroupModal);
+
+    $('#leave-group-cancel').addEventListener('click', closeModals);
+    $('#leave-group-close').addEventListener('click', closeModals);
+    $('#leave-group-confirm').addEventListener('click', leaveActiveGroup);
+    Utils.makeModalDraggable($('#leave-group-modal'));
   }
 
   return {

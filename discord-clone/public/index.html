@@ -586,14 +586,21 @@
     </div>
   </div>
 
-  <div class="modal hidden" id="add-member-modal">
-    <h2>Invite People</h2>
-    <label>Search by username</label>
-    <input type="text" id="add-member-search" placeholder="Search by username..." autocomplete="off" />
-    <div id="add-member-results" class="friend-checklist"></div>
-    <div class="auth-error" id="add-member-error"></div>
-    <div class="modal-actions">
-      <button class="btn-secondary" id="add-member-cancel">Close</button>
+  <div class="modal pixel-modal pixel-modal--wide hidden" id="add-member-modal">
+    <div class="pixel-modal-titlebar">
+      <span class="pixel-modal-title">INVITE-PEOPLE.EXE</span>
+      <span class="pixel-modal-titlebar-lines"></span>
+      <button class="pixel-modal-close" id="add-member-close" aria-label="Close">&times;</button>
+    </div>
+    <div class="pixel-modal-body">
+      <h2>Invite People</h2>
+      <label>Search by username</label>
+      <input type="text" id="add-member-search" placeholder="Search by username..." autocomplete="off" />
+      <div id="add-member-results" class="friend-checklist"></div>
+      <div class="auth-error" id="add-member-error"></div>
+      <div class="modal-actions">
+        <button class="pixel-btn pixel-btn-secondary" id="add-member-cancel">CLOSE</button>
+      </div>
     </div>
   </div>
 
@@ -647,6 +654,22 @@
     <div class="modal-actions">
       <button class="btn-secondary" id="delete-channel-cancel">Cancel</button>
       <button class="btn-primary" id="delete-channel-confirm">Delete</button>
+    </div>
+  </div>
+
+  <div class="modal pixel-modal hidden" id="leave-group-modal">
+    <div class="pixel-modal-titlebar">
+      <span class="pixel-modal-title">LEAVE-GROUP.EXE</span>
+      <span class="pixel-modal-titlebar-lines"></span>
+      <button class="pixel-modal-close" id="leave-group-close" aria-label="Close">&times;</button>
+    </div>
+    <div class="pixel-modal-body">
+      <h2>LEAVE GROUP?</h2>
+      <p id="leave-group-message"></p>
+      <div class="modal-actions">
+        <button class="pixel-btn pixel-btn-secondary" id="leave-group-cancel">CANCEL</button>
+        <button class="pixel-btn pixel-btn-primary" id="leave-group-confirm">LEAVE</button>
+      </div>
     </div>
   </div>
 </div>
