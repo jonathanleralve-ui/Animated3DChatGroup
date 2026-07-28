@@ -400,16 +400,25 @@ const Profile = (() => {
   }
 
   // Same idea as EYE_RELATED_KEYWORDS above, but matching findShapeKeys()'s
-  // default mouth-morph name list, so the mouth shape-key field's
-  // autocomplete only surfaces mouth-related morphs instead of also
-  // suggesting eye/eyebrow ones.
+  // default mouth-morph name list. Standard MMD mouth morphs are usually
+  // named with a single bare kana character ('あ','い','う','え','お','わ') -
+  // matching those as a "contains" substring (like the multi-character
+  // keywords below) is too loose, since that single kana can turn up
+  // inside all kinds of unrelated names (e.g. the eye morph "恐ろしい子"
+  // contains "い"). Those go through MOUTH_EXACT_NAMES instead, requiring
+  // an exact match; only the longer, more distinctive keywords use "contains".
+  const MOUTH_EXACT_NAMES = ['あ', 'い', 'う', 'え', 'お', 'わ', 'a', 'i', 'u', 'e', 'o'];
   const MOUTH_RELATED_KEYWORDS = [
-    'あ', 'い', 'う', 'え', 'お', 'mouth', 'open', '口', '開',
-    'わ', 'ω', 'にやり', 'にっこり', '歯', 'ぺろ', 'てへ',
+    'mouth', 'open', '口', '開', 'ω', 'にやり', 'にっこり',
+    '歯', 'ぺろ', 'てへ', '口角', '口横',
   ];
 
   function isMouthRelatedShapeKey(name) {
+    // Never double-classify something the eye filter already claims -
+    // keeps the two suggestion lists mutually exclusive.
+    if (isEyeRelatedShapeKey(name)) return false;
     if (SHAPE_KEY_TRANSLATIONS.mouth[name]) return true;
+    if (MOUTH_EXACT_NAMES.includes(name) || MOUTH_EXACT_NAMES.includes(name.toLowerCase())) return true;
     const lower = name.toLowerCase();
     return MOUTH_RELATED_KEYWORDS.some((kw) => lower.includes(kw.toLowerCase()));
   }
