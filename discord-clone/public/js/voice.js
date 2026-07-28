@@ -494,6 +494,20 @@ const VoiceChat = (() => {
         onError: () => { container.classList.add('avatar-3d-error'); }
       });
       inst = avatar3DInstances[key] = { api, modelUrl, container };
+
+      // createAvatar() just sized the renderer off container.clientWidth,
+      // but the container is still detached at this point (it's only
+      // appended to `ring` below, and `ring`'s own tile isn't inserted into
+      // #voice-participants until renderParticipants() finishes) - so that
+      // read was 0 and avatar3d.js fell back to a hardcoded 96px renderer,
+      // which then gets stretched to fill the real (much bigger) circle via
+      // CSS and looks pixelated. Once the current render pass has actually
+      // landed in the document (rAF, after layout), re-measure and resize
+      // for real - this is exactly what the wheel-resize handler already
+      // does, just triggered automatically instead of waiting on a scroll.
+      requestAnimationFrame(() => {
+        if (avatar3DInstances[key] === inst) inst.api.resize();
+      });
     } else {
       // Framing/lip-sync/blink/gaze can change (saved from Edit Profile)
       // without the model URL changing, e.g. after
