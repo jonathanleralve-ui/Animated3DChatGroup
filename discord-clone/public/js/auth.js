@@ -76,6 +76,11 @@ const Auth = (() => {
       $('#modal-overlay').classList.add('hidden');
     });
 
+    $('#logout-confirm-close').addEventListener('click', () => {
+      $('#logout-confirm-modal').classList.add('hidden');
+      $('#modal-overlay').classList.add('hidden');
+    });
+
     $('#logout-confirm-confirm').addEventListener('click', () => {
       $('#logout-confirm-modal').classList.add('hidden');
       $('#modal-overlay').classList.add('hidden');

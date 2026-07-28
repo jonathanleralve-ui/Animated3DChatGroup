@@ -597,12 +597,19 @@
     </div>
   </div>
 
-  <div class="modal hidden" id="logout-confirm-modal">
-    <h2>Log Out</h2>
-    <p>Are you sure you want to log out?</p>
-    <div class="modal-actions">
-      <button class="btn-secondary" id="logout-confirm-cancel">Cancel</button>
-      <button class="btn-primary" id="logout-confirm-confirm">Log Out</button>
+  <div class="modal pixel-modal hidden" id="logout-confirm-modal">
+    <div class="pixel-modal-titlebar">
+      <span class="pixel-modal-title">LOG-OUT.EXE</span>
+      <span class="pixel-modal-titlebar-lines"></span>
+      <button class="pixel-modal-close" id="logout-confirm-close" aria-label="Close">&times;</button>
+    </div>
+    <div class="pixel-modal-body">
+      <h2>LOG OUT?</h2>
+      <p>Are you sure you want to log out?</p>
+      <div class="modal-actions">
+        <button class="pixel-btn pixel-btn-secondary" id="logout-confirm-cancel">CANCEL</button>
+        <button class="pixel-btn pixel-btn-primary" id="logout-confirm-confirm">LOG OUT</button>
+      </div>
     </div>
   </div>
 
