@@ -33,6 +33,7 @@ function publicUser(u) {
     avatarModelBlinkIntervalMin: u.avatar_model_blink_interval_min,
     avatarModelBlinkIntervalMax: u.avatar_model_blink_interval_max,
     avatarModelBlinkEnabled: u.avatar_model_blink_enabled,
+    avatarModelBlinkShapeKeys: u.avatar_model_blink_shape_keys,
     avatarModelLookEnabled: u.avatar_model_look_enabled,
     bannerUrl: u.banner_url,
     bannerZoom: u.banner_zoom,
@@ -123,6 +124,7 @@ router.patch('/me', auth, async (req, res) => {
       avatarModelZoom, avatarModelOffsetX, avatarModelOffsetY, avatarModelRotationY,
       avatarModelMouthIntensity, avatarModelVoiceStart, avatarModelVoiceMax,
       avatarModelBlinkIntensity, avatarModelBlinkIntervalMin, avatarModelBlinkIntervalMax, avatarModelBlinkEnabled,
+      avatarModelBlinkShapeKeys,
       avatarModelLookEnabled,
       bannerUrl, bannerZoom, bannerOffsetX, bannerOffsetY
     } = req.body || {};
@@ -260,6 +262,21 @@ router.patch('/me', auth, async (req, res) => {
     if (avatarModelBlinkEnabled !== undefined) {
       updates.push(`avatar_model_blink_enabled = $${idx++}`);
       values.push(!!avatarModelBlinkEnabled);
+    }
+
+    // Manual override for which shape key(s) drive blinking - a plain
+    // comma-separated string of names the user typed in, since plenty of
+    // models use shape key names the built-in auto-detection can't guess.
+    // Empty string means "fall back to auto-detection". Just length-capped,
+    // not otherwise validated - an unmatched name simply results in no
+    // shape key being found client-side, same as a typo would.
+    if (avatarModelBlinkShapeKeys !== undefined) {
+      const keys = String(avatarModelBlinkShapeKeys).trim();
+      if (keys.length > 200) {
+        return res.status(400).json({ error: 'Blink shape key list is too long (200 characters max)' });
+      }
+      updates.push(`avatar_model_blink_shape_keys = $${idx++}`);
+      values.push(keys);
     }
 
     if (avatarModelLookEnabled !== undefined) {

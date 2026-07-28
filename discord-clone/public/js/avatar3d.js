@@ -91,7 +91,22 @@ function createAvatar3D(container, options = {}) {
         // via setLookAtCursor(). Falls back to a no-op if the loaded model
         // doesn't have recognizable head/neck/eye bones.
         lookAtCursor: initialLookAtCursor = true,
+        // Optional manual override for which shape key(s) drive blinking.
+        // By default (empty) the built-in name-guessing in findShapeKeys()
+        // is used ('blink', 'eye', 目, etc.) - but plenty of models use
+        // shape key names that don't match any of those, so this lets the
+        // user type the exact name(s) themselves (comma-separated) in Edit
+        // Profile instead of blinking never triggering. Accepts either a
+        // comma-separated string (as saved to the profile) or an array.
+        blinkShapeKeys: initialBlinkShapeKeys = '',
     } = options;
+
+    function parseShapeKeyNames(v) {
+        if (Array.isArray(v)) return v.map((s) => String(s).trim()).filter(Boolean);
+        if (typeof v === 'string') return v.split(',').map((s) => s.trim()).filter(Boolean);
+        return [];
+    }
+    let blinkShapeKeyNames = parseShapeKeyNames(initialBlinkShapeKeys);
 
     // Same clamp ranges as the server (server/routes/auth.js).
     const MOUTH_INTENSITY_MIN = 0, MOUTH_INTENSITY_MAX = 1;
@@ -279,9 +294,13 @@ function createAvatar3D(container, options = {}) {
         scene.add(gridHelper);
     }
 
-    function findShapeKeys(mesh) {
+    function findShapeKeys(mesh, customBlinkNames) {
         const mouthNames = ['あ', 'い', 'う', 'え', 'お', 'a', 'i', 'u', 'e', 'o', 'mouth', 'open', '口', '開'];
-        const blinkNames = ['blink', 'eye', '目', 'まばたき', 'closeeye', 'eyelid', 'wink'];
+        const defaultBlinkNames = ['blink', 'eye', '目', 'まばたき', 'closeeye', 'eyelid', 'wink'];
+        // If the user typed in specific shape key name(s) to use, match only
+        // those (still a case-insensitive "contains" match, same as the
+        // default list) instead of guessing from the built-in name list.
+        const blinkNames = (customBlinkNames && customBlinkNames.length) ? customBlinkNames : defaultBlinkNames;
 
         const foundMouth = [], foundBlink = [];
 
@@ -302,6 +321,24 @@ function createAvatar3D(container, options = {}) {
         });
 
         return { mouthKeys: foundMouth, blinkKeys: foundBlink };
+    }
+
+    // Every shape key name found on the loaded model, deduped, in whatever
+    // order the model defines them - used by Edit Profile to show the user
+    // what's actually available to type into the blink-shape-key field,
+    // since MMD models frequently use Japanese names that aren't guessable.
+    function collectShapeKeyNames(mesh) {
+        const names = [];
+        const seen = new Set();
+        if (!mesh) return names;
+        mesh.traverse((child) => {
+            if (child.isMesh && child.morphTargetDictionary) {
+                Object.keys(child.morphTargetDictionary).forEach((key) => {
+                    if (!seen.has(key)) { seen.add(key); names.push(key); }
+                });
+            }
+        });
+        return names;
     }
 
     // Looks for MMD's standard bone names (head/neck/eyes, Japanese and
@@ -498,7 +535,7 @@ function createAvatar3D(container, options = {}) {
                 
                 scene.add(model);
                 
-                const result = findShapeKeys(mesh);
+                const result = findShapeKeys(mesh, blinkShapeKeyNames);
                 mouthKeys = result.mouthKeys;
                 blinkKeys = result.blinkKeys;
 
@@ -511,7 +548,7 @@ function createAvatar3D(container, options = {}) {
 
                 applyMouth(0);
                 isReady = true;
-                onReady();
+                onReady({ shapeKeyNames: collectShapeKeyNames(mesh) });
                 
                 renderer.render(scene, camera);
             },
@@ -663,6 +700,27 @@ function createAvatar3D(container, options = {}) {
         },
         toggleBlink(enabled) {
             isBlinkEnabled = enabled !== undefined ? enabled : !isBlinkEnabled;
+        },
+        getBlinkShapeKeys() {
+            return blinkShapeKeyNames.slice();
+        },
+        // Used by the "Blink shape key(s)" field in Edit Profile so typing a
+        // name previews live against the mounted model, same idea as
+        // setBlinkSettings(). Passing an empty value goes back to
+        // auto-detecting from the built-in name list. Any shape key(s)
+        // this was previously driving are reset to 0 first so switching
+        // away from one mid-blink doesn't leave an eye stuck shut.
+        setBlinkShapeKeys(namesInput) {
+            blinkShapeKeyNames = parseShapeKeyNames(namesInput);
+            blinkKeys.forEach((k) => { k.inf[k.index] = 0; });
+            blinkKeys = model ? findShapeKeys(model, blinkShapeKeyNames).blinkKeys : [];
+        },
+        // Every shape key name the currently-loaded model actually has,
+        // so Edit Profile can show the user something to pick from rather
+        // than having them guess (MMD models often use Japanese names).
+        // Empty array if no model is loaded yet.
+        getAvailableShapeKeyNames() {
+            return model ? collectShapeKeyNames(model) : [];
         },
         getLookAtCursor() {
             return isLookAtCursorEnabled;

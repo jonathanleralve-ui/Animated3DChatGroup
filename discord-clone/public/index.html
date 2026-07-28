@@ -283,6 +283,14 @@
                         <input type="range" id="edit-profile-model-blink-max-slider" min="0.2" max="20" step="0.1" value="4" />
                       </div>
                     </div>
+                    <div class="model-framing-field">
+                      <label class="model-framing-label" for="edit-profile-model-blink-shapekeys-input">Blink shape key(s) <span class="model-framing-value">(optional)</span></label>
+                      <div class="model-framing-row">
+                        <input type="text" id="edit-profile-model-blink-shapekeys-input" list="edit-profile-model-shapekeys-datalist" placeholder="Auto-detect (blink, eye, 目, まばたき…)" maxlength="200" />
+                        <datalist id="edit-profile-model-shapekeys-datalist"></datalist>
+                      </div>
+                      <p class="model-framing-hint">Leave blank to auto-detect. If blinking doesn't work, type the exact shape key name(s) from your model, comma-separated if there's more than one - start typing to see what's on this model.</p>
+                    </div>
                   </div>
                   <div class="model-framing-group-footer">
                     <button class="btn-secondary btn-small" id="edit-profile-model-blink-reset" type="button">Reset blinking</button>

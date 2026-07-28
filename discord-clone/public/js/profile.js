@@ -53,6 +53,11 @@ const Profile = (() => {
   let selectedBlinkIntervalMin = 2;
   let selectedBlinkIntervalMax = 4;
   let selectedBlinkEnabled = true;
+  // Manual override for which shape key(s) drive blinking - a comma-
+  // separated string of exact names the user types in, for models whose
+  // shape keys don't match anything in the built-in auto-detect list
+  // (e.g. unusual or non-English names). Empty = auto-detect as before.
+  let selectedBlinkShapeKeys = '';
   // Head/eye gaze tracking toggle. Default matches avatar3d.js's default.
   let selectedLookEnabled = true;
 
@@ -175,6 +180,7 @@ const Profile = (() => {
     const box = $('#edit-profile-model-preview');
     box.classList.remove('model-preview-loading', 'model-preview-error');
     box.innerHTML = '<span id="edit-profile-model-preview-placeholder">No model</span>';
+    renderShapeKeyHint([]);
   }
 
   function mountModelPreview(modelUrl) {
@@ -207,8 +213,12 @@ const Profile = (() => {
       blinkIntervalMin: selectedBlinkIntervalMin,
       blinkIntervalMax: selectedBlinkIntervalMax,
       blinkEnabled: selectedBlinkEnabled,
+      blinkShapeKeys: selectedBlinkShapeKeys,
       lookAtCursor: selectedLookEnabled,
-      onReady: () => box.classList.remove('model-preview-loading'),
+      onReady: ({ shapeKeyNames } = {}) => {
+        box.classList.remove('model-preview-loading');
+        renderShapeKeyHint(shapeKeyNames || []);
+      },
       onError: () => {
         box.classList.remove('model-preview-loading');
         box.classList.add('model-preview-error');
@@ -297,7 +307,28 @@ const Profile = (() => {
     $('#edit-profile-model-blink-intensity-value').textContent = `${Math.round(selectedBlinkIntensity * 100)}%`;
     $('#edit-profile-model-blink-min-value').textContent = `${selectedBlinkIntervalMin.toFixed(1)}s`;
     $('#edit-profile-model-blink-max-value').textContent = `${selectedBlinkIntervalMax.toFixed(1)}s`;
+    $('#edit-profile-model-blink-shapekeys-input').value = selectedBlinkShapeKeys;
     $('#edit-profile-model-blink-body').classList.toggle('group-disabled', !selectedBlinkEnabled);
+  }
+
+  // Lists whatever shape keys the currently-loaded model actually has as
+  // <option>s in a <datalist>, so the blink shape-key field can offer
+  // autocomplete instead of the user having to guess an exact name (MMD
+  // models frequently use Japanese shape key names).
+  function renderShapeKeyHint(names) {
+    const datalist = $('#edit-profile-model-shapekeys-datalist');
+    if (!datalist) return;
+    datalist.innerHTML = '';
+    names.forEach((name) => {
+      const opt = document.createElement('option');
+      opt.value = name;
+      datalist.appendChild(opt);
+    });
+  }
+
+  function applyBlinkShapeKeysFromInput(value) {
+    selectedBlinkShapeKeys = value;
+    if (modelPreviewInstance) modelPreviewInstance.setBlinkShapeKeys(selectedBlinkShapeKeys);
   }
 
   function applyBlinkToggle(enabled) {
@@ -337,6 +368,7 @@ const Profile = (() => {
     selectedBlinkIntervalMin = 2;
     selectedBlinkIntervalMax = 4;
     selectedBlinkEnabled = true;
+    selectedBlinkShapeKeys = '';
     renderBlinkSliders();
     if (modelPreviewInstance) {
       modelPreviewInstance.setBlinkSettings({
@@ -345,6 +377,7 @@ const Profile = (() => {
         blinkIntervalMax: selectedBlinkIntervalMax,
         blinkEnabled: selectedBlinkEnabled
       });
+      modelPreviewInstance.setBlinkShapeKeys(selectedBlinkShapeKeys);
     }
   }
 
@@ -535,6 +568,7 @@ const Profile = (() => {
     selectedBlinkIntervalMin = AppState.me.avatarModelBlinkIntervalMin ?? 2;
     selectedBlinkIntervalMax = AppState.me.avatarModelBlinkIntervalMax ?? 4;
     selectedBlinkEnabled = AppState.me.avatarModelBlinkEnabled ?? true;
+    selectedBlinkShapeKeys = AppState.me.avatarModelBlinkShapeKeys ?? '';
     selectedLookEnabled = AppState.me.avatarModelLookEnabled ?? true;
     selectedBannerUrl = AppState.me.bannerUrl || null;
     pendingBannerFile = null;
@@ -590,6 +624,7 @@ const Profile = (() => {
         avatarModelZoom: selectedModelZoom, avatarModelOffsetX: selectedModelOffsetX, avatarModelOffsetY: selectedModelOffsetY, avatarModelRotationY: selectedModelRotationY,
         avatarModelMouthIntensity: selectedMouthIntensity, avatarModelVoiceStart: selectedVoiceStart, avatarModelVoiceMax: selectedVoiceMax,
         avatarModelBlinkIntensity: selectedBlinkIntensity, avatarModelBlinkIntervalMin: selectedBlinkIntervalMin, avatarModelBlinkIntervalMax: selectedBlinkIntervalMax, avatarModelBlinkEnabled: selectedBlinkEnabled,
+        avatarModelBlinkShapeKeys: selectedBlinkShapeKeys,
         avatarModelLookEnabled: selectedLookEnabled,
         bannerUrl, bannerZoom: selectedBannerZoom, bannerOffsetX: selectedBannerOffsetX, bannerOffsetY: selectedBannerOffsetY
       })
@@ -709,6 +744,7 @@ const Profile = (() => {
       selectedBlinkIntervalMin = 2;
       selectedBlinkIntervalMax = 4;
       selectedBlinkEnabled = true;
+      selectedBlinkShapeKeys = '';
       selectedLookEnabled = true;
       renderModelSection();
       disposeModelPreview();
@@ -725,6 +761,7 @@ const Profile = (() => {
     $('#edit-profile-model-blink-intensity-slider').addEventListener('input', (e) => applyBlinkIntensityFromSlider(e.target.value));
     $('#edit-profile-model-blink-min-slider').addEventListener('input', (e) => applyBlinkMinFromSlider(e.target.value));
     $('#edit-profile-model-blink-max-slider').addEventListener('input', (e) => applyBlinkMaxFromSlider(e.target.value));
+    $('#edit-profile-model-blink-shapekeys-input').addEventListener('input', (e) => applyBlinkShapeKeysFromInput(e.target.value));
     $('#edit-profile-model-blink-reset').addEventListener('click', resetBlinkSettings);
     $('#edit-profile-model-look-toggle').addEventListener('change', (e) => applyLookToggle(e.target.checked));
     $('#edit-profile-model-file').addEventListener('change', (e) => {
@@ -751,6 +788,7 @@ const Profile = (() => {
           selectedBlinkIntervalMin = 2;
           selectedBlinkIntervalMax = 4;
           selectedBlinkEnabled = true;
+          selectedBlinkShapeKeys = '';
           selectedLookEnabled = true;
           renderModelSection();
           mountModelPreview(selectedModelUrl);
