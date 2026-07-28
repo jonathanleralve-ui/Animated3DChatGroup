@@ -311,10 +311,62 @@ const Profile = (() => {
     $('#edit-profile-model-blink-body').classList.toggle('group-disabled', !selectedBlinkEnabled);
   }
 
+  // MMD models are almost always authored with Japanese morph names, and
+  // that name is baked into the .pmx file itself - there's no English
+  // version stored anywhere to read instead. This is a best-effort lookup
+  // covering the standard morph names that show up on the vast majority of
+  // MMD models (the "standard" facial morph set most modelers follow),
+  // used only to label the datalist options below - the actual value typed
+  // into the field (and matched against the model) always stays the real
+  // Japanese name, since that's what findShapeKeys() needs to match against
+  // the model's morph dictionary.
+  const SHAPE_KEY_TRANSLATIONS = {
+    // Eyes / blinking
+    'まばたき': 'Blink', 'まばたき2': 'Blink 2', 'まばたき１': 'Blink 1',
+    'ウィンク': 'Wink (right)', 'ウィンク右': 'Wink (right)', 'ウィンク２': 'Wink 2',
+    'ウィンク2': 'Wink 2', 'ウインク': 'Wink (right)',
+    '笑い': 'Smile (eyes)', 'にこり': 'Smile (eyebrows)',
+    'なごみ': 'Gentle eyes', 'びっくり': 'Surprised', 'じと目': 'Half-lidded / doubtful eyes',
+    'ジト目': 'Half-lidded / doubtful eyes', '三角目': 'Narrowed / triangle eyes',
+    '死に目': 'Dead / X eyes', 'はぁと': 'Heart eyes', 'ハート': 'Heart eyes',
+    '星目': 'Star eyes', '恐ろしい子': 'Wide shocked eyes',
+    'ハイライト消し': 'Highlight off', 'ハイライト消': 'Highlight off',
+    '白目': 'White / blank eyes', '瞳小': 'Small pupils', '瞳大': 'Large pupils',
+    '光下': 'Eye light down', 'つぶり': 'Eyes closed', 'つむり': 'Eyes closed',
+    '眼球下': 'Eyes look down', '眼球上': 'Eyes look up',
+    // Mouth
+    'あ': 'Ah (mouth open)', 'い': 'I (mouth)', 'う': 'U (mouth)', 'え': 'E (mouth)',
+    'お': 'O (mouth)', 'わ': 'Wa (mouth)', 'ω': 'Small O mouth', 'ω□': 'Square small mouth',
+    'にやり': 'Smirk / grin', 'にっこり': 'Big smile',
+    '口角上げ': 'Mouth corners up', '口角下げ': 'Mouth corners down',
+    '口横広げ': 'Mouth stretched wide', '口横狭め': 'Mouth narrowed',
+    '歯無し上': 'Hide upper teeth', '歯無し下': 'Hide lower teeth',
+    'ぺろっ': 'Tongue out', 'てへぺろ': 'Tongue out (playful)',
+    // Eyebrows
+    '真面目': 'Serious eyebrows', '困る': 'Troubled eyebrows', '怒り': 'Angry eyebrows',
+    '上': 'Eyebrows up', '下': 'Eyebrows down', '眉頭右': 'Right eyebrow inner',
+    '眉頭左': 'Left eyebrow inner', 'キリッ': 'Determined', 'きりっ': 'Determined',
+    // Other common
+    '照れ': 'Blush', '青ざめ': 'Pale / shocked', '汗': 'Sweat drop',
+    '涙': 'Tears', '怒': 'Anger mark',
+  };
+
+  function translateShapeKeyName(name) {
+    if (SHAPE_KEY_TRANSLATIONS[name]) return SHAPE_KEY_TRANSLATIONS[name];
+    // Some models suffix/prefix the base morph name (e.g. "まばたき_L").
+    // Fall back to a substring match against the known set so those still
+    // get a usable label instead of nothing.
+    const match = Object.keys(SHAPE_KEY_TRANSLATIONS).find((jp) => name.includes(jp));
+    return match ? SHAPE_KEY_TRANSLATIONS[match] : null;
+  }
+
   // Lists whatever shape keys the currently-loaded model actually has as
   // <option>s in a <datalist>, so the blink shape-key field can offer
   // autocomplete instead of the user having to guess an exact name (MMD
-  // models frequently use Japanese shape key names).
+  // models frequently use Japanese shape key names). The field itself still
+  // needs the real (Japanese) name typed in to match the model, so `value`
+  // stays untranslated - only the visible `label` gets an English hint
+  // where one is known, shown as "English (原文)".
   function renderShapeKeyHint(names) {
     const datalist = $('#edit-profile-model-shapekeys-datalist');
     if (!datalist) return;
@@ -322,6 +374,12 @@ const Profile = (() => {
     names.forEach((name) => {
       const opt = document.createElement('option');
       opt.value = name;
+      // Most browsers render datalist options as "value — label" (e.g.
+      // Chrome shows the value on the left, the label greyed-out on the
+      // right), so the label only needs the translation itself - the
+      // Japanese original is already shown via `value`.
+      const translated = translateShapeKeyName(name);
+      opt.label = translated || name;
       datalist.appendChild(opt);
     });
   }
