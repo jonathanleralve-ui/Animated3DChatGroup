@@ -1,0 +1,34 @@
+/* ===== Base: fonts, CSS variables, resets ===== */
+@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+
+:root {
+  --blurple: #5865F2;
+  --blurple-hover: #4752c4;
+  --bg-darkest: #1e1f22;
+  --bg-dark: #2b2d31;
+  --bg-mid: #313338;
+  --bg-light: #383a40;
+  --bg-lighter: #404249;
+  --text-normal: #dbdee1;
+  --text-muted: #949ba4;
+  --text-bright: #f2f3f5;
+  --green: #23a55a;
+  --red: #f23f43;
+  --yellow: #f0b232;
+  --border: #26282c;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'gg sans', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  background: var(--bg-darkest);
+  color: var(--text-normal);
+  height: 100vh;
+  overflow: hidden;
+}
+
+.hidden { display: none !important; }
+
+button { font-family: inherit; cursor: pointer; border: none; }
+input { font-family: inherit; }

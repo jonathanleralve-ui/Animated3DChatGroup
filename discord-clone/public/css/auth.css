@@ -1,0 +1,120 @@
+/* ===== Auth screen (login/register) ===== */
+/* ============ AUTH ============ */
+.auth-screen {
+  height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(circle at 20% 20%, #313866 0%, #1e1f22 55%);
+}
+
+.auth-card {
+  background: var(--bg-mid);
+  border-radius: 8px;
+  padding: 32px;
+  width: 420px;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.5);
+}
+
+.auth-logo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  justify-content: center;
+  margin-bottom: 20px;
+}
+
+.logo-badge {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: var(--blurple);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 20px;
+}
+
+.auth-logo h1 {
+  color: var(--text-bright);
+  font-size: 24px;
+}
+
+.auth-form h2 {
+  color: var(--text-bright);
+  text-align: center;
+  margin-bottom: 4px;
+  font-size: 20px;
+}
+
+.auth-sub {
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 14px;
+  margin-bottom: 16px;
+}
+
+.auth-form label {
+  display: block;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-top: 14px;
+  margin-bottom: 6px;
+}
+
+.auth-form input {
+  width: 100%;
+  padding: 10px;
+  border-radius: 4px;
+  border: none;
+  background: var(--bg-darkest);
+  color: var(--text-normal);
+  font-size: 15px;
+}
+
+.auth-form input:focus { outline: 2px solid var(--blurple); }
+
+.auth-error {
+  color: var(--red);
+  font-size: 13px;
+  margin-top: 8px;
+  min-height: 16px;
+}
+
+.btn-primary {
+  width: 100%;
+  background: var(--blurple);
+  color: white;
+  padding: 11px;
+  border-radius: 4px;
+  font-weight: 600;
+  font-size: 14px;
+  margin-top: 16px;
+  transition: background 0.15s;
+}
+.btn-primary:hover { background: var(--blurple-hover); }
+
+.btn-secondary {
+  background: transparent;
+  color: var(--text-normal);
+  padding: 10px 16px;
+  border-radius: 4px;
+  font-weight: 600;
+  font-size: 14px;
+}
+.btn-secondary:hover { text-decoration: underline; }
+
+.btn-small { width: auto; padding: 8px 14px; margin-top: 0; white-space: nowrap; }
+
+.auth-switch {
+  text-align: center;
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-top: 16px;
+}
+.auth-switch a { color: #00a8fc; text-decoration: none; }
+.auth-switch a:hover { text-decoration: underline; }
