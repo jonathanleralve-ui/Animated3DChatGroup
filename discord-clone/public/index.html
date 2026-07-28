@@ -517,49 +517,72 @@
 
 <!-- ============ MODALS ============ -->
 <div id="modal-overlay" class="modal-overlay hidden">
-  <div class="modal hidden" id="select-group-action-modal">
-    <h2>Add a Group</h2>
-    <div class="action-select-options">
-      <button class="action-option-btn" id="select-create-group">
-        <div class="action-option-icon">➕</div>
-        <div class="action-option-text">
-          <div class="action-option-title">Create a Group</div>
-          <div class="action-option-desc">Start a brand new group for you and your friends</div>
-        </div>
-      </button>
-      <button class="action-option-btn" id="select-join-group">
-        <div class="action-option-icon">↳</div>
-        <div class="action-option-text">
-          <div class="action-option-title">Join a Group</div>
-          <div class="action-option-desc">Search by name to join an existing group</div>
-        </div>
-      </button>
+  <div class="modal pixel-modal hidden" id="select-group-action-modal">
+    <div class="pixel-modal-titlebar">
+      <span class="pixel-modal-title">ADD-GROUP.EXE</span>
+      <span class="pixel-modal-titlebar-lines"></span>
+      <button class="pixel-modal-close" id="select-group-action-close" aria-label="Close">&times;</button>
     </div>
-    <div class="modal-actions">
-      <button class="btn-secondary" id="select-group-action-cancel">Cancel</button>
-    </div>
-  </div>
-
-  <div class="modal hidden" id="create-group-modal">
-    <h2>Create a Group</h2>
-    <label>Group Name</label>
-    <input type="text" id="create-group-name" placeholder="Awesome group" />
-    <label>Add Friends</label>
-    <div id="create-group-friends" class="friend-checklist"></div>
-    <div class="modal-actions">
-      <button class="btn-secondary" id="create-group-cancel">Cancel</button>
-      <button class="btn-primary" id="create-group-confirm">Create</button>
+    <div class="pixel-modal-body">
+      <h2>Add a Group</h2>
+      <div class="action-select-options">
+        <button class="action-option-btn" id="select-create-group">
+          <div class="action-option-icon">➕</div>
+          <div class="action-option-text">
+            <div class="action-option-title">Create a Group</div>
+            <div class="action-option-desc">Start a brand new group for you and your friends</div>
+          </div>
+        </button>
+        <button class="action-option-btn" id="select-join-group">
+          <div class="action-option-icon">↳</div>
+          <div class="action-option-text">
+            <div class="action-option-title">Join a Group</div>
+            <div class="action-option-desc">Search by name to join an existing group</div>
+          </div>
+        </button>
+      </div>
+      <div class="modal-actions">
+        <button class="pixel-btn pixel-btn-secondary" id="select-group-action-cancel">CANCEL</button>
+      </div>
     </div>
   </div>
 
-  <div class="modal hidden" id="join-group-modal">
-    <h2>Join a Group</h2>
-    <label>Group Name</label>
-    <input type="text" id="join-group-search" placeholder="Search by group name..." autocomplete="off" />
-    <div id="join-group-results" class="friend-checklist"></div>
-    <div class="auth-error" id="join-group-error"></div>
-    <div class="modal-actions">
-      <button class="btn-secondary" id="join-group-cancel">Cancel</button>
+  <div class="modal pixel-modal pixel-modal--wide hidden" id="create-group-modal">
+    <div class="pixel-modal-titlebar">
+      <span class="pixel-modal-title">CREATE-GROUP.EXE</span>
+      <span class="pixel-modal-titlebar-lines"></span>
+      <button class="pixel-modal-close" id="create-group-close" aria-label="Close">&times;</button>
+    </div>
+    <div class="pixel-modal-body">
+      <h2>Create a Group</h2>
+      <label>Group Name</label>
+      <input type="text" id="create-group-name" placeholder="Awesome group" />
+      <label>Add Friends</label>
+      <div id="create-group-friends" class="friend-checklist"></div>
+      <div class="modal-actions">
+        <button class="pixel-btn pixel-btn-secondary pixel-btn-back" id="create-group-back">&larr; BACK</button>
+        <button class="pixel-btn pixel-btn-secondary" id="create-group-cancel">CANCEL</button>
+        <button class="pixel-btn pixel-btn-primary" id="create-group-confirm">CREATE</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal pixel-modal pixel-modal--wide hidden" id="join-group-modal">
+    <div class="pixel-modal-titlebar">
+      <span class="pixel-modal-title">JOIN-GROUP.EXE</span>
+      <span class="pixel-modal-titlebar-lines"></span>
+      <button class="pixel-modal-close" id="join-group-close" aria-label="Close">&times;</button>
+    </div>
+    <div class="pixel-modal-body">
+      <h2>Join a Group</h2>
+      <label>Group Name</label>
+      <input type="text" id="join-group-search" placeholder="Search by group name..." autocomplete="off" />
+      <div id="join-group-results" class="friend-checklist"></div>
+      <div class="auth-error" id="join-group-error"></div>
+      <div class="modal-actions">
+        <button class="pixel-btn pixel-btn-secondary pixel-btn-back" id="join-group-back">&larr; BACK</button>
+        <button class="pixel-btn pixel-btn-secondary" id="join-group-cancel">CANCEL</button>
+      </div>
     </div>
   </div>
 

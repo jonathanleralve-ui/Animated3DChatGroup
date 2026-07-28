@@ -100,66 +100,7 @@ const Auth = (() => {
   // Lets the logout confirm popup be dragged around the screen by its
   // pixel-art titlebar, like a little retro desktop window.
   function initLogoutModalDrag() {
-    const modal = $('#logout-confirm-modal');
-    const titlebar = modal.querySelector('.pixel-modal-titlebar');
-    let dragging = false;
-    let offsetX = 0;
-    let offsetY = 0;
-
-    function onPointerDown(e) {
-      // Don't start a drag when the close button itself is clicked.
-      if (e.target.closest('.pixel-modal-close')) return;
-
-      dragging = true;
-      titlebar.classList.add('dragging');
-
-      const rect = modal.getBoundingClientRect();
-      offsetX = e.clientX - rect.left;
-      offsetY = e.clientY - rect.top;
-
-      // Switch from the default translate-centered position to an
-      // explicit left/top so it can be moved freely from here on.
-      modal.style.transform = 'none';
-      modal.style.left = `${rect.left}px`;
-      modal.style.top = `${rect.top}px`;
-
-      document.addEventListener('pointermove', onPointerMove);
-      document.addEventListener('pointerup', onPointerUp);
-    }
-
-    function onPointerMove(e) {
-      if (!dragging) return;
-
-      const rect = modal.getBoundingClientRect();
-      const maxX = window.innerWidth - rect.width;
-      const maxY = window.innerHeight - rect.height;
-
-      const nextX = Math.min(Math.max(0, e.clientX - offsetX), Math.max(0, maxX));
-      const nextY = Math.min(Math.max(0, e.clientY - offsetY), Math.max(0, maxY));
-
-      modal.style.left = `${nextX}px`;
-      modal.style.top = `${nextY}px`;
-    }
-
-    function onPointerUp() {
-      dragging = false;
-      titlebar.classList.remove('dragging');
-      document.removeEventListener('pointermove', onPointerMove);
-      document.removeEventListener('pointerup', onPointerUp);
-    }
-
-    titlebar.addEventListener('pointerdown', onPointerDown);
-
-    // Re-center the popup each time it's opened, so it doesn't reopen
-    // wherever it was last dragged to.
-    const observer = new MutationObserver(() => {
-      if (!modal.classList.contains('hidden')) {
-        modal.style.left = '';
-        modal.style.top = '';
-        modal.style.transform = 'translate(-50%, -50%)';
-      }
-    });
-    observer.observe(modal, { attributes: true, attributeFilter: ['class'] });
+    Utils.makeModalDraggable($('#logout-confirm-modal'));
   }
 
   return { initUI, tryResume };

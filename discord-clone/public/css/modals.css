@@ -141,6 +141,7 @@
   margin-bottom: 0;
 }
 .pixel-modal-body .modal-actions { margin-top: 22px; gap: 12px; }
+.pixel-btn-back { margin-right: auto; }
 
 .pixel-btn {
   font-family: 'Press Start 2P', 'Courier New', monospace;
@@ -159,6 +160,73 @@
 
 .pixel-btn-primary { background: #111214; color: #ece6d6; }
 .pixel-btn-primary:hover { background: #2a2c30; }
+
+.pixel-modal--wide {
+  width: 420px;
+}
+
+/* Inputs, labels, and list rows inside pixel modals reuse generic classes
+   (.modal input, .modal label, .friend-check-row, .action-option-btn) that
+   are styled for the app's normal dark theme elsewhere. These overrides
+   give them the retro cream-and-black look instead, scoped so the
+   non-pixel modals are untouched. */
+.pixel-modal-body label {
+  font-family: 'Courier New', monospace;
+  font-size: 11px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: #45413c;
+}
+
+.pixel-modal-body input {
+  border-radius: 0;
+  border: 3px solid #111214;
+  background: #fff9ea;
+  color: #111214;
+  font-family: 'Courier New', monospace;
+}
+.pixel-modal-body input:focus { outline: 2px solid #111214; outline-offset: 2px; }
+
+.pixel-modal-body .empty-list-hint { color: #6b6558; }
+
+.pixel-modal-body .friend-check-row { border-radius: 0; }
+.pixel-modal-body .friend-check-row:hover { background: #ded5bd; }
+
+.pixel-modal-body .action-select-options { gap: 12px; }
+.pixel-modal-body .action-option-btn {
+  border-radius: 0;
+  border: 3px solid #111214;
+  background: #fff9ea;
+  color: #111214;
+  box-shadow: 3px 3px 0 #111214;
+  transition: transform 0.05s ease, box-shadow 0.05s ease;
+}
+.pixel-modal-body .action-option-btn:hover { background: #ffffff; }
+.pixel-modal-body .action-option-btn:active { transform: translate(3px, 3px); box-shadow: 0 0 0 #111214; }
+.pixel-modal-body .action-option-icon { border-radius: 0; background: #111214; color: #ece6d6; }
+.pixel-modal-body .action-option-title {
+  font-family: 'Press Start 2P', 'Courier New', monospace;
+  font-size: 11px;
+  letter-spacing: 0.5px;
+  color: #111214;
+}
+.pixel-modal-body .action-option-desc { font-family: 'Courier New', monospace; color: #6b6558; }
+
+.pixel-modal-body .friend-row { border-radius: 0; }
+.pixel-modal-body .friend-row:hover { background: #ded5bd; }
+.pixel-modal-body .friend-name {
+  font-family: 'Courier New', monospace;
+  color: #111214;
+}
+.pixel-modal-body .friend-sub {
+  font-family: 'Courier New', monospace;
+  color: #6b6558;
+}
+.pixel-modal-body .search-result-action.muted { color: #6b6558; }
+.pixel-modal-body .search-result-action.addable { color: #2f8a4e; border-color: #2f8a4e; }
+.pixel-modal-body .avatar { border: 2px solid #111214; }
+
+.pixel-btn-secondary { background: #ece6d6; color: #111214; }
 
 .action-select-options {
   display: flex;

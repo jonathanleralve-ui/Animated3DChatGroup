@@ -919,21 +919,30 @@ const Groups = (() => {
     $('#rail-add-group').addEventListener('click', openSelectActionModal);
 
     $('#select-group-action-cancel').addEventListener('click', closeModals);
+    $('#select-group-action-close').addEventListener('click', closeModals);
     $('#select-create-group').addEventListener('click', openCreateModal);
     $('#select-join-group').addEventListener('click', openJoinModal);
 
     $('#create-group-cancel').addEventListener('click', closeModals);
+    $('#create-group-close').addEventListener('click', closeModals);
+    $('#create-group-back').addEventListener('click', openSelectActionModal);
     $('#modal-overlay').addEventListener('click', (e) => {
       if (e.target === $('#modal-overlay')) closeModals();
     });
 
     $('#join-group-cancel').addEventListener('click', closeModals);
+    $('#join-group-close').addEventListener('click', closeModals);
+    $('#join-group-back').addEventListener('click', openSelectActionModal);
     $('#join-group-search').addEventListener('input', () => {
       const query = $('#join-group-search').value.trim();
       $('#join-group-error').textContent = '';
       clearTimeout(joinSearchDebounce);
       joinSearchDebounce = setTimeout(() => runJoinSearch(query), 250);
     });
+
+    Utils.makeModalDraggable($('#select-group-action-modal'));
+    Utils.makeModalDraggable($('#create-group-modal'));
+    Utils.makeModalDraggable($('#join-group-modal'));
 
     $('#create-group-confirm').addEventListener('click', () => {
       const name = $('#create-group-name').value.trim();
