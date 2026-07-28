@@ -319,59 +319,87 @@ const Profile = (() => {
   // used only to label the datalist options below - the actual value typed
   // into the field (and matched against the model) always stays the real
   // Japanese name, since that's what findShapeKeys() needs to match against
-  // the model's morph dictionary.
+  // the model's morph dictionary. Grouped by category so the blink field
+  // (below) can filter down to just the eye-related ones instead of also
+  // suggesting mouth/eyebrow morphs that have nothing to do with blinking.
   const SHAPE_KEY_TRANSLATIONS = {
-    // Eyes / blinking
-    'まばたき': 'Blink', 'まばたき2': 'Blink 2', 'まばたき１': 'Blink 1',
-    'ウィンク': 'Wink (right)', 'ウィンク右': 'Wink (right)', 'ウィンク２': 'Wink 2',
-    'ウィンク2': 'Wink 2', 'ウインク': 'Wink (right)',
-    '笑い': 'Smile (eyes)', 'にこり': 'Smile (eyebrows)',
-    'なごみ': 'Gentle eyes', 'びっくり': 'Surprised', 'じと目': 'Half-lidded / doubtful eyes',
-    'ジト目': 'Half-lidded / doubtful eyes', '三角目': 'Narrowed / triangle eyes',
-    '死に目': 'Dead / X eyes', 'はぁと': 'Heart eyes', 'ハート': 'Heart eyes',
-    '星目': 'Star eyes', '恐ろしい子': 'Wide shocked eyes',
-    'ハイライト消し': 'Highlight off', 'ハイライト消': 'Highlight off',
-    '白目': 'White / blank eyes', '瞳小': 'Small pupils', '瞳大': 'Large pupils',
-    '光下': 'Eye light down', 'つぶり': 'Eyes closed', 'つむり': 'Eyes closed',
-    '眼球下': 'Eyes look down', '眼球上': 'Eyes look up',
-    // Mouth
-    'あ': 'Ah (mouth open)', 'い': 'I (mouth)', 'う': 'U (mouth)', 'え': 'E (mouth)',
-    'お': 'O (mouth)', 'わ': 'Wa (mouth)', 'ω': 'Small O mouth', 'ω□': 'Square small mouth',
-    'にやり': 'Smirk / grin', 'にっこり': 'Big smile',
-    '口角上げ': 'Mouth corners up', '口角下げ': 'Mouth corners down',
-    '口横広げ': 'Mouth stretched wide', '口横狭め': 'Mouth narrowed',
-    '歯無し上': 'Hide upper teeth', '歯無し下': 'Hide lower teeth',
-    'ぺろっ': 'Tongue out', 'てへぺろ': 'Tongue out (playful)',
-    // Eyebrows
-    '真面目': 'Serious eyebrows', '困る': 'Troubled eyebrows', '怒り': 'Angry eyebrows',
-    '上': 'Eyebrows up', '下': 'Eyebrows down', '眉頭右': 'Right eyebrow inner',
-    '眉頭左': 'Left eyebrow inner', 'キリッ': 'Determined', 'きりっ': 'Determined',
-    // Other common
-    '照れ': 'Blush', '青ざめ': 'Pale / shocked', '汗': 'Sweat drop',
-    '涙': 'Tears', '怒': 'Anger mark',
+    eyes: {
+      'まばたき': 'Blink', 'まばたき2': 'Blink 2', 'まばたき１': 'Blink 1',
+      'ウィンク': 'Wink (right)', 'ウィンク右': 'Wink (right)', 'ウィンク２': 'Wink 2',
+      'ウィンク2': 'Wink 2', 'ウインク': 'Wink (right)', 'ウィンク左': 'Wink (left)',
+      '笑い': 'Smile (eyes)', 'なごみ': 'Gentle eyes', 'びっくり': 'Surprised',
+      'じと目': 'Half-lidded / doubtful eyes', 'ジト目': 'Half-lidded / doubtful eyes',
+      '三角目': 'Narrowed / triangle eyes', '死に目': 'Dead / X eyes',
+      'はぁと': 'Heart eyes', 'ハート': 'Heart eyes', '星目': 'Star eyes',
+      '恐ろしい子': 'Wide shocked eyes', 'ハイライト消し': 'Highlight off',
+      'ハイライト消': 'Highlight off', '白目': 'White / blank eyes',
+      '瞳小': 'Small pupils', '瞳大': 'Large pupils', '光下': 'Eye light down',
+      'つぶり': 'Eyes closed', 'つむり': 'Eyes closed',
+      '眼球下': 'Eyes look down', '眼球上': 'Eyes look up',
+    },
+    mouth: {
+      'あ': 'Ah (mouth open)', 'い': 'I (mouth)', 'う': 'U (mouth)', 'え': 'E (mouth)',
+      'お': 'O (mouth)', 'わ': 'Wa (mouth)', 'ω': 'Small O mouth', 'ω□': 'Square small mouth',
+      'にやり': 'Smirk / grin', 'にっこり': 'Big smile',
+      '口角上げ': 'Mouth corners up', '口角下げ': 'Mouth corners down',
+      '口横広げ': 'Mouth stretched wide', '口横狭め': 'Mouth narrowed',
+      '歯無し上': 'Hide upper teeth', '歯無し下': 'Hide lower teeth',
+      'ぺろっ': 'Tongue out', 'てへぺろ': 'Tongue out (playful)',
+    },
+    eyebrows: {
+      '真面目': 'Serious eyebrows', '困る': 'Troubled eyebrows', '怒り': 'Angry eyebrows',
+      '上': 'Eyebrows up', '下': 'Eyebrows down', '眉頭右': 'Right eyebrow inner',
+      '眉頭左': 'Left eyebrow inner', 'キリッ': 'Determined', 'きりっ': 'Determined',
+    },
+    other: {
+      '照れ': 'Blush', '青ざめ': 'Pale / shocked', '汗': 'Sweat drop',
+      '涙': 'Tears', '怒': 'Anger mark',
+    },
   };
 
+  // Flat map of every known name -> translation, regardless of category -
+  // used when labelling an option we've already decided to show.
+  const SHAPE_KEY_TRANSLATIONS_FLAT = Object.assign({}, ...Object.values(SHAPE_KEY_TRANSLATIONS));
+
   function translateShapeKeyName(name) {
-    if (SHAPE_KEY_TRANSLATIONS[name]) return SHAPE_KEY_TRANSLATIONS[name];
+    if (SHAPE_KEY_TRANSLATIONS_FLAT[name]) return SHAPE_KEY_TRANSLATIONS_FLAT[name];
     // Some models suffix/prefix the base morph name (e.g. "まばたき_L").
     // Fall back to a substring match against the known set so those still
     // get a usable label instead of nothing.
-    const match = Object.keys(SHAPE_KEY_TRANSLATIONS).find((jp) => name.includes(jp));
-    return match ? SHAPE_KEY_TRANSLATIONS[match] : null;
+    const match = Object.keys(SHAPE_KEY_TRANSLATIONS_FLAT).find((jp) => name.includes(jp));
+    return match ? SHAPE_KEY_TRANSLATIONS_FLAT[match] : null;
+  }
+
+  // Same keyword list findShapeKeys() in avatar3d.js uses to auto-detect
+  // blink morphs, plus a few extra eye-only terms - used here to catch
+  // eye-related shape keys that aren't in the known-translation set above
+  // (custom/unusual model names), so the filter below isn't limited to
+  // only the names we happen to have a translation for.
+  const EYE_RELATED_KEYWORDS = [
+    'blink', 'eye', '目', 'まばたき', 'closeeye', 'eyelid', 'wink',
+    'ウィンク', 'ウインク', '瞼', '瞳', '眼', '白目', 'ハイライト',
+  ];
+
+  function isEyeRelatedShapeKey(name) {
+    if (SHAPE_KEY_TRANSLATIONS.eyes[name]) return true;
+    const lower = name.toLowerCase();
+    return EYE_RELATED_KEYWORDS.some((kw) => lower.includes(kw.toLowerCase()));
   }
 
   // Lists whatever shape keys the currently-loaded model actually has as
   // <option>s in a <datalist>, so the blink shape-key field can offer
   // autocomplete instead of the user having to guess an exact name (MMD
-  // models frequently use Japanese shape key names). The field itself still
-  // needs the real (Japanese) name typed in to match the model, so `value`
-  // stays untranslated - only the visible `label` gets an English hint
-  // where one is known, shown as "English (原文)".
+  // models frequently use Japanese shape key names). Filtered down to
+  // eye/blink-related morphs only - this field only controls blinking, so
+  // mouth and eyebrow morphs would just be noise here. The field itself
+  // still needs the real (Japanese) name typed in to match the model, so
+  // `value` stays untranslated - only the visible `label` gets an English
+  // hint where one is known.
   function renderShapeKeyHint(names) {
     const datalist = $('#edit-profile-model-shapekeys-datalist');
     if (!datalist) return;
     datalist.innerHTML = '';
-    names.forEach((name) => {
+    names.filter(isEyeRelatedShapeKey).forEach((name) => {
       const opt = document.createElement('option');
       opt.value = name;
       // Most browsers render datalist options as "value — label" (e.g.
