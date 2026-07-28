@@ -944,7 +944,32 @@ const VoiceChat = (() => {
     if (!panel) return;
     const min = computeMinHeight(panel);
     const maxHeight = window.innerHeight * 0.7;
-    const target = Math.min(min, maxHeight);
+
+    // computeMinHeight only measures a normal-flow row of tiles, so it has
+    // no idea how far down a freely-dragged tile (tilePositions) currently
+    // sits. Without this, resizing an avatar after dragging it down snaps
+    // the panel back to "one row" height, clipping the dragged tile and
+    // leaving the resize handle sitting in the middle of its avatar circle.
+    // Fold in the lowest edge of any positioned tile too, same as
+    // syncPanelHeightToDrag does mid-drag.
+    let positionedNeeded = 0;
+    const container = $('#voice-participants');
+    const positionedKeys = Object.keys(tilePositions);
+    if (container && positionedKeys.length) {
+      const m = getPanelLayoutMetrics(panel);
+      let maxBottom = 0;
+      positionedKeys.forEach((key) => {
+        const el = container.querySelector(`.voice-tile[data-speaker="${CSS.escape(key)}"]`);
+        if (!el) return;
+        maxBottom = Math.max(maxBottom, tilePositions[key].y + el.offsetHeight);
+      });
+      if (maxBottom > 0) {
+        positionedNeeded = m.paddingTop + m.paddingBottom + m.topHeight + maxBottom + m.participantsMarginBottom
+          + (m.isStreaming ? m.gridMarginBottom + STREAM_TILE_MIN : 0);
+      }
+    }
+
+    const target = Math.min(Math.max(min, positionedNeeded), maxHeight);
     panel.style.setProperty('--voice-panel-height', `${target}px`);
     updateStreamTileHeight(panel);
   }
