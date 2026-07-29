@@ -1,7 +1,8 @@
 /* ===== App layout: rail, sidebar, channel list, chat area ===== */
 /* ============ APP LAYOUT ============ */
 .app-screen {
-  height: 100vh;
+  flex: 1;
+  min-height: 0;
   display: grid;
   grid-template-columns: 72px 240px 1fr;
 }
@@ -18,20 +19,21 @@
 }
 
 .rail-item {
-  width: 48px;
-  height: 48px;
-  border-radius: 50%;
-  background: var(--bg-dark);
+  width: 44px;
+  height: 44px;
+  border-radius: 0;
+  border: 3px solid #111214;
+  background: #ece6d6;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: border-radius 0.2s ease, background 0.2s ease, transform 0.1s ease;
-  color: var(--text-normal);
+  transition: transform 0.05s ease, box-shadow 0.05s ease, background 0.15s ease;
+  color: #111214;
   font-weight: 700;
   font-size: 18px;
   flex-shrink: 0;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+  box-shadow: 3px 3px 0 #111214;
   overflow: hidden;
 }
 
@@ -42,12 +44,12 @@
 
 .unread-dot {
   position: absolute;
-  top: -2px;
-  right: -2px;
+  top: -4px;
+  right: -4px;
   width: 14px;
   height: 14px;
   background: var(--red);
-  border: 2px solid var(--bg-darkest);
+  border: 2px solid #111214;
   border-radius: 50%;
   pointer-events: none;
 }
@@ -58,27 +60,29 @@
   object-fit: cover;
 }
 
-.rail-item:hover { border-radius: 16px; background: var(--blurple); color: white; transform: scale(1.05); }
-.rail-item.active { border-radius: 16px; background: var(--blurple); color: white; box-shadow: 0 4px 12px rgba(88,101,242,0.4); }
+.rail-item:hover { background: #fff9ea; }
+.rail-item:active { transform: translate(3px, 3px); box-shadow: 0 0 0 #111214; }
+.rail-item.active { background: #111214; color: #ece6d6; box-shadow: 3px 3px 0 #111214; }
 
 .home-icon { font-size: 20px; }
 
 .rail-divider {
   width: 32px;
-  height: 1px;
-  background: var(--border);
-  border-radius: 1px;
-  margin: 1px 0;
+  height: 3px;
+  background: #111214;
+  border-radius: 0;
+  margin: 3px 0;
 }
 
 #rail-groups {
   display: flex;
   flex-direction: column;
-  gap: 8px; /* Cambia este valor (ej. 6px, 10px) para ajustar el espacio a tu gusto */
+  gap: 10px; /* Cambia este valor (ej. 6px, 10px) para ajustar el espacio a tu gusto */
 }
 
-.rail-add { background: var(--bg-dark); color: var(--green); font-size: 24px; }
-.rail-add:hover { background: var(--green); color: white; }
+.rail-add { background: #ece6d6; color: #111214; font-size: 22px; font-weight: 700; }
+.rail-add:hover { background: #fff9ea; }
+.rail-add:active { transform: translate(3px, 3px); box-shadow: 0 0 0 #111214; }
 
 /* Sidebar */
 .sidebar {

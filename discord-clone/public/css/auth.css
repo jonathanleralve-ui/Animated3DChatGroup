@@ -1,7 +1,8 @@
 /* ===== Auth screen (login/register) ===== */
 /* ============ AUTH ============ */
 .auth-screen {
-  height: 100vh;
+  flex: 1;
+  min-height: 0;
   display: flex;
   align-items: center;
   justify-content: center;

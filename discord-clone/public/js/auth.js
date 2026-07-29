@@ -66,7 +66,7 @@ const Auth = (() => {
     $('#register-submit').addEventListener('click', doRegister);
     $('#register-password').addEventListener('keydown', (e) => { if (e.key === 'Enter') doRegister(); });
 
-    $('#logout-btn').addEventListener('click', () => {
+    $('#site-titlebar-close').addEventListener('click', () => {
       $('#modal-overlay').classList.remove('hidden');
       $('#logout-confirm-modal').classList.remove('hidden');
     });

@@ -26,9 +26,57 @@ body {
   color: var(--text-normal);
   height: 100vh;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 .hidden { display: none !important; }
 
 button { font-family: inherit; cursor: pointer; border: none; }
 input { font-family: inherit; }
+
+/* Site-wide title bar, same retro "system window" look as .pixel-modal-titlebar */
+.site-titlebar {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 8px 8px 12px;
+  background: #111214;
+  border-bottom: 4px solid #111214;
+  user-select: none;
+}
+
+.site-titlebar-title {
+  font-family: 'Press Start 2P', 'Courier New', monospace;
+  font-size: 10px;
+  letter-spacing: 1px;
+  color: #ece6d6;
+  white-space: nowrap;
+}
+
+.site-titlebar-lines {
+  flex: 1;
+  height: 10px;
+  margin: 0 2px;
+  background-image: repeating-linear-gradient(to bottom, #ece6d6 0, #ece6d6 1px, transparent 1px, transparent 3px);
+  opacity: 0.85;
+}
+
+.site-titlebar-close {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #ece6d6;
+  color: #111214;
+  border: 2px solid #ece6d6;
+  font-family: 'Courier New', monospace;
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1;
+  padding: 0;
+}
+.site-titlebar-close:hover { background: #f23f43; color: #111214; }
