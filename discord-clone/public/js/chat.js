@@ -96,11 +96,30 @@ const Chat = (() => {
 
   function openChatWindow() {
     const chat = AppState.activeChat;
+    const panel = $('#chat-panel');
     $('#add-friend-panel').classList.add('hidden');
     $('#edit-profile-panel').classList.add('hidden');
     $('#empty-state').classList.add('hidden');
-    $('#chat-panel').classList.remove('hidden');
-    $('#chat-title').textContent = chat.type === 'dm' ? `@${chat.name}` : `# ${chat.name}`;
+    panel.classList.remove('hidden');
+
+    const titleText = chat.type === 'dm' ? `@${chat.name}` : `# ${chat.name}`;
+    $('#chat-title').textContent = titleText;
+    $('#chat-popup-title').textContent = titleText;
+
+    if (chat.type === 'dm') {
+      // Private chats float as a draggable pop-up window instead of living
+      // in the main chat area. Re-center it each time a DM is opened fresh.
+      panel.classList.add('dm-popup');
+      panel.style.left = '';
+      panel.style.top = '';
+      panel.style.transform = 'translate(-50%, -50%)';
+    } else {
+      panel.classList.remove('dm-popup');
+      panel.style.left = '';
+      panel.style.top = '';
+      panel.style.transform = '';
+    }
+
     $('#chat-messages').innerHTML = '';
     const typingEl = $('#typing-indicator');
     typingEl.innerHTML = '';
@@ -824,6 +843,19 @@ const Chat = (() => {
     });
     $('#chat-attach-btn').addEventListener('click', () => $('#chat-file-input').click());
     $('#chat-file-input').addEventListener('change', (e) => onFileSelected(e.target.files[0]));
+
+    $('#chat-popup-close').addEventListener('click', () => {
+      const panel = $('#chat-panel');
+      panel.classList.add('hidden');
+      panel.classList.remove('dm-popup');
+      panel.style.left = '';
+      panel.style.top = '';
+      panel.style.transform = '';
+      AppState.activeChat = null;
+      $('#empty-state').classList.remove('hidden');
+    });
+
+    Utils.makeFloatingDraggable($('#chat-panel'), $('#chat-popup-titlebar'), 'dm-popup');
 
     EmojiPicker.init((emoji) => {
       const input = $('#chat-input');

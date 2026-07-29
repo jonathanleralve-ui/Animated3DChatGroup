@@ -240,5 +240,62 @@ const Utils = (() => {
     observer.observe(modal, { attributes: true, attributeFilter: ['class'] });
   }
 
-  return { $, $$, initials, escapeHtml, formatTime, avatarEl, avatarWithStatus, applyNameColor, linkifyText, getVideoEmbedUrl, isEmojiOnly, makeModalDraggable };
+  // Drags a panel by a handle element, same pointer mechanics as
+  // makeModalDraggable, but WITHOUT the auto-recenter-on-unhide behavior —
+  // this is for panels (like the DM chat pop-up) that also have a normal
+  // non-floating mode, so we don't want every class change to snap its
+  // position. Callers are responsible for resetting position/transform
+  // themselves when switching modes. Dragging only starts if `panel` has
+  // the `activeClass` class at the time of the pointerdown.
+  function makeFloatingDraggable(panel, handle, activeClass) {
+    if (!panel || !handle) return;
+
+    let dragging = false;
+    let offsetX = 0;
+    let offsetY = 0;
+
+    function onPointerDown(e) {
+      if (e.target.closest('.pixel-modal-close')) return;
+      if (activeClass && !panel.classList.contains(activeClass)) return;
+
+      dragging = true;
+      handle.classList.add('dragging');
+
+      const rect = panel.getBoundingClientRect();
+      offsetX = e.clientX - rect.left;
+      offsetY = e.clientY - rect.top;
+
+      panel.style.transform = 'none';
+      panel.style.left = `${rect.left}px`;
+      panel.style.top = `${rect.top}px`;
+
+      document.addEventListener('pointermove', onPointerMove);
+      document.addEventListener('pointerup', onPointerUp);
+    }
+
+    function onPointerMove(e) {
+      if (!dragging) return;
+
+      const rect = panel.getBoundingClientRect();
+      const maxX = window.innerWidth - rect.width;
+      const maxY = window.innerHeight - rect.height;
+
+      const nextX = Math.min(Math.max(0, e.clientX - offsetX), Math.max(0, maxX));
+      const nextY = Math.min(Math.max(0, e.clientY - offsetY), Math.max(0, maxY));
+
+      panel.style.left = `${nextX}px`;
+      panel.style.top = `${nextY}px`;
+    }
+
+    function onPointerUp() {
+      dragging = false;
+      handle.classList.remove('dragging');
+      document.removeEventListener('pointermove', onPointerMove);
+      document.removeEventListener('pointerup', onPointerUp);
+    }
+
+    handle.addEventListener('pointerdown', onPointerDown);
+  }
+
+  return { $, $$, initials, escapeHtml, formatTime, avatarEl, avatarWithStatus, applyNameColor, linkifyText, getVideoEmbedUrl, isEmojiOnly, makeModalDraggable, makeFloatingDraggable };
 })();
