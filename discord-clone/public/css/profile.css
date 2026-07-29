@@ -811,11 +811,17 @@
 .chat-panel { flex: 1; display: flex; flex-direction: column; min-height: 0; }
 
 .chat-header {
-  padding: 14px 16px;
+  padding: 12px 16px;
   font-weight: 700;
-  color: var(--text-bright);
-  box-shadow: 0 1px 0 var(--border);
+  color: #ece6d6;
+  background: #111214;
+  border-bottom: 4px solid #111214;
+  box-shadow: none;
   flex-shrink: 0;
+  font-family: 'Press Start 2P', 'Courier New', monospace;
+  font-size: 11px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
 }
 
 .chat-messages {
@@ -830,9 +836,9 @@
 .message-row { display: flex; gap: 12px; position: relative; }
 .message-body { flex: 1; min-width: 0; }
 .message-head { display: flex; align-items: baseline; gap: 8px; margin-bottom: 2px; }
-.message-author { font-weight: 600; color: var(--text-bright); font-size: 15px; }
-.message-time { font-size: 11px; color: var(--text-muted); }
-.message-content { font-size: 15px; color: var(--text-normal); line-height: 1.4; word-wrap: break-word; white-space: pre-wrap; }
+.message-author { font-weight: 700; color: var(--text-bright); font-size: 14px; font-family: 'Courier New', monospace; letter-spacing: 0.02em; }
+.message-time { font-size: 11px; color: var(--text-muted); font-family: 'Courier New', monospace; }
+.message-content { font-size: 14px; color: var(--text-normal); line-height: 1.5; word-wrap: break-word; white-space: pre-wrap; font-family: 'Courier New', monospace; }
 .message-content.emoji-only { font-size: 40px; line-height: 1.3; white-space: normal; }
 
 .message-row.own .message-author { color: #a4b3ff; }
@@ -846,12 +852,13 @@
   height: 26px;
   align-items: center;
   justify-content: center;
-  border: none;
-  border-radius: 4px;
+  border: 2px solid #111214;
+  border-radius: 0;
   background: var(--bg-darkest);
   color: var(--text-muted);
   font-size: 13px;
   cursor: pointer;
+  box-shadow: 2px 2px 0 #111214;
 }
 .message-row:hover .message-delete-btn { display: flex; }
 .message-delete-btn:hover { background: var(--red); color: #ffffff; }
@@ -875,8 +882,9 @@
   gap: 12px;
   padding: 12px 14px;
   background: var(--bg-darkest);
-  border: 1px solid var(--border);
-  border-radius: 8px;
+  border: 3px solid #111214;
+  border-radius: 0;
+  box-shadow: 3px 3px 0 #111214;
 }
 .invite-card-icon {
   flex-shrink: 0;
@@ -1001,7 +1009,8 @@
   gap: 10px;
   margin-top: 6px;
   padding: 10px 14px;
-  border-radius: 8px;
+  border-radius: 0;
+  border: 2px solid #111214;
   background: var(--bg-light);
   max-width: 320px;
   text-decoration: none;
@@ -1180,15 +1189,31 @@
 .chat-input-row input {
   flex: 1;
   padding: 12px 14px;
-  border-radius: 8px;
-  border: none;
-  background: var(--bg-light);
+  border-radius: 0;
+  border: 3px solid #111214;
+  background: var(--bg-darkest);
   color: var(--text-normal);
-  font-size: 15px;
+  font-size: 14px;
+  font-family: 'Courier New', monospace;
 }
-.chat-input-row input:focus { outline: none; }
+.chat-input-row input:focus { outline: 2px solid #111214; outline-offset: 2px; }
 
-.chat-input-row .btn-primary { width: auto; margin-top: 0; padding: 0 20px; }
+.chat-input-row .btn-primary {
+  width: auto;
+  margin-top: 0;
+  padding: 0 20px;
+  border-radius: 0;
+  border: 3px solid #111214;
+  background: #111214;
+  color: #ece6d6;
+  box-shadow: 3px 3px 0 #111214;
+  font-family: 'Press Start 2P', 'Courier New', monospace;
+  font-size: 10px;
+  letter-spacing: 0.5px;
+  transition: transform 0.05s ease, box-shadow 0.05s ease, background 0.15s ease;
+}
+.chat-input-row .btn-primary:hover { background: #2a2c30; }
+.chat-input-row .btn-primary:active { transform: translate(3px, 3px); box-shadow: 0 0 0 #111214; }
 
 .emoji-picker-wrapper { position: relative; flex-shrink: 0; }
 
@@ -1198,9 +1223,9 @@
   left: 0;
   width: 280px;
   background: var(--bg-dark);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+  border: 3px solid #111214;
+  border-radius: 0;
+  box-shadow: 4px 4px 0 #111214;
   overflow: hidden;
   z-index: 20;
 }
@@ -1247,17 +1272,20 @@
 
 .btn-icon {
   flex-shrink: 0;
-  width: 40px;
-  height: 40px;
-  border-radius: 8px;
-  border: none;
-  background: var(--bg-light);
+  width: 38px;
+  height: 38px;
+  border-radius: 0;
+  border: 3px solid #111214;
+  background: var(--bg-darkest);
   color: var(--text-normal);
-  font-size: 18px;
+  font-size: 16px;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
+  box-shadow: 2px 2px 0 #111214;
+  transition: transform 0.05s ease, box-shadow 0.05s ease, background 0.15s ease;
 }
-.btn-icon:hover { background: var(--bg-lighter, #40444b); }
+.btn-icon:hover { background: var(--bg-light); }
+.btn-icon:active { transform: translate(2px, 2px); box-shadow: 0 0 0 #111214; }
 .btn-icon:disabled { opacity: 0.5; cursor: default; }
