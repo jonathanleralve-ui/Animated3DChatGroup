@@ -588,6 +588,17 @@
   overflow-y: auto;
 }
 
+.friends-lists-panel {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 32px 40px;
+}
+
+.friends-lists-panel .friend-row {
+  max-width: 640px;
+}
+
 .add-friend-close {
   position: absolute;
   top: 16px;

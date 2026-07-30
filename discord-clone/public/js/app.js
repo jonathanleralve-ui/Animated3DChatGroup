@@ -12,8 +12,9 @@ const App = (() => {
     $('#group-panel').classList.add('hidden');
     $('#add-friend-panel').classList.add('hidden');
     $('#edit-profile-panel').classList.add('hidden');
-    $('#empty-state').classList.remove('hidden');
+    $('#empty-state').classList.add('hidden');
     $('#chat-panel').classList.add('hidden');
+    $('#friends-lists-panel').classList.remove('hidden');
     VoiceChat.refreshPanelForGroup(null);
   }
 

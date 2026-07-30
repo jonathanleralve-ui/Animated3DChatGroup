@@ -103,6 +103,7 @@ const Groups = (() => {
     $('#group-panel').classList.remove('hidden');
     $('#add-friend-panel').classList.add('hidden');
     $('#edit-profile-panel').classList.add('hidden');
+    $('#friends-lists-panel').classList.add('hidden');
     $('#empty-state').classList.remove('hidden');
     $('#chat-panel').classList.add('hidden');
 

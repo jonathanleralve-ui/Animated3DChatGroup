@@ -131,23 +131,68 @@ const Friends = (() => {
       el.innerHTML = `<div class="empty-list-hint">${emptyMsg}</div>`;
       return;
     }
-    list.forEach((f) => {
-      const row = document.createElement('div');
-      row.className = 'friend-row';
-      row.appendChild(avatarWithStatus(f));
-      const meta = document.createElement('div');
-      meta.className = 'friend-meta';
-      meta.innerHTML = `<div class="friend-name">${escapeHtml(f.displayName)}</div><div class="friend-sub">${f.status === 'online' ? 'Online' : 'Offline'}</div>`;
-      applyNameColor(meta.querySelector('.friend-name'), f.nameColor);
-      row.appendChild(meta);
-      if (AppState.unreadDmSenders[f.id]) {
-        const dot = document.createElement('span');
-        dot.className = 'friend-row-unread-dot';
-        row.appendChild(dot);
-      }
-      row.addEventListener('click', () => Chat.openDM(f));
-      el.appendChild(row);
-    });
+    const grid = document.createElement('div');
+    grid.className = 'friend-card-grid';
+    list.forEach((f) => grid.appendChild(buildFriendCard(f)));
+    el.appendChild(grid);
+  }
+
+  function buildFriendCard(f) {
+    const card = document.createElement('div');
+    card.className = 'profile-preview-card friend-card';
+
+    const banner = document.createElement('div');
+    banner.className = 'profile-preview-banner';
+    if (f.bannerUrl) {
+      banner.classList.add('has-banner-image');
+      const zoom = f.bannerZoom || 1;
+      const offsetX = f.bannerOffsetX || 0;
+      const offsetY = f.bannerOffsetY || 0;
+      banner.style.backgroundImage = `url("${f.bannerUrl}")`;
+      banner.style.backgroundSize = `${zoom * 100}%`;
+      banner.style.backgroundPosition = `calc(50% + ${offsetX}px) calc(50% + ${offsetY}px)`;
+    }
+    card.appendChild(banner);
+
+    const ring = document.createElement('div');
+    ring.className = 'profile-preview-avatar-ring';
+    const avatarBox = document.createElement('div');
+    avatarBox.className = 'profile-preview-avatar';
+    avatarBox.appendChild(avatarWithStatus(f));
+    ring.appendChild(avatarBox);
+    card.appendChild(ring);
+
+    const body = document.createElement('div');
+    body.className = 'profile-preview-body';
+
+    const nameEl = document.createElement('div');
+    nameEl.className = 'profile-preview-name';
+    nameEl.textContent = f.displayName;
+    applyNameColor(nameEl, f.nameColor);
+    body.appendChild(nameEl);
+
+    if (f.username) {
+      const userEl = document.createElement('div');
+      userEl.className = 'profile-preview-username';
+      userEl.textContent = `@${f.username}`;
+      body.appendChild(userEl);
+    }
+
+    const statusEl = document.createElement('div');
+    statusEl.className = 'friend-card-status';
+    statusEl.textContent = f.status === 'online' ? 'Online' : 'Offline';
+    body.appendChild(statusEl);
+
+    card.appendChild(body);
+
+    if (AppState.unreadDmSenders[f.id]) {
+      const dot = document.createElement('span');
+      dot.className = 'friend-card-unread-dot';
+      card.appendChild(dot);
+    }
+
+    card.addEventListener('click', () => Chat.openDM(f));
+    return card;
   }
 
   function buildIncomingRow(u) {
@@ -305,6 +350,7 @@ const Friends = (() => {
   function openAddFriendPanel() {
     $('#chat-panel').classList.add('hidden');
     $('#empty-state').classList.add('hidden');
+    $('#friends-lists-panel').classList.add('hidden');
     $('#edit-profile-panel').classList.add('hidden');
     $('#group-settings-panel').classList.add('hidden');
     $('#add-friend-error').textContent = '';
@@ -320,7 +366,7 @@ const Friends = (() => {
     if (AppState.activeChat) {
       $('#chat-panel').classList.remove('hidden');
     } else {
-      $('#empty-state').classList.remove('hidden');
+      $('#friends-lists-panel').classList.remove('hidden');
     }
     $$('.tab-btn').forEach((b) => b.classList.remove('active'));
     $('.tab-btn[data-tab="friends"]').classList.add('active');
@@ -339,12 +385,13 @@ const Friends = (() => {
           return;
         }
 
+        // Clicking a Friends/Else/Pending tab always shows that list in the
+        // main content area, taking over from whatever else was showing
+        // there (a DM/channel, the empty placeholder, add-friend, etc).
         $('#add-friend-panel').classList.add('hidden');
-        if (AppState.activeChat) {
-          $('#chat-panel').classList.remove('hidden');
-        } else {
-          $('#empty-state').classList.remove('hidden');
-        }
+        $('#chat-panel').classList.add('hidden');
+        $('#empty-state').classList.add('hidden');
+        $('#friends-lists-panel').classList.remove('hidden');
         $$('.tab-panel').forEach((p) => p.classList.add('hidden'));
         $(`#tab-${btn.dataset.tab}`).classList.remove('hidden');
 

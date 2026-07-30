@@ -723,6 +723,7 @@ const Profile = (() => {
     $('#empty-state').classList.add('hidden');
     $('#add-friend-panel').classList.add('hidden');
     $('#group-settings-panel').classList.add('hidden');
+    $('#friends-lists-panel').classList.add('hidden');
     $('#edit-profile-panel').classList.remove('hidden');
     $('#edit-profile-displayname').focus();
 
@@ -738,6 +739,8 @@ const Profile = (() => {
     $('#edit-profile-panel').classList.add('hidden');
     if (AppState.activeChat) {
       $('#chat-panel').classList.remove('hidden');
+    } else if (!AppState.activeGroup) {
+      $('#friends-lists-panel').classList.remove('hidden');
     } else {
       $('#empty-state').classList.remove('hidden');
     }

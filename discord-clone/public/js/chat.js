@@ -100,25 +100,18 @@ const Chat = (() => {
     $('#add-friend-panel').classList.add('hidden');
     $('#edit-profile-panel').classList.add('hidden');
     $('#empty-state').classList.add('hidden');
+    $('#friends-lists-panel').classList.add('hidden');
     panel.classList.remove('hidden');
 
     const titleText = chat.type === 'dm' ? `@${chat.name}` : `# ${chat.name}`;
     $('#chat-title').textContent = titleText;
     $('#chat-popup-title').textContent = titleText;
 
-    if (chat.type === 'dm') {
-      // Private chats float as a draggable pop-up window instead of living
-      // in the main chat area. Re-center it each time a DM is opened fresh.
-      panel.classList.add('dm-popup');
-      panel.style.left = '';
-      panel.style.top = '';
-      panel.style.transform = 'translate(-50%, -50%)';
-    } else {
-      panel.classList.remove('dm-popup');
-      panel.style.left = '';
-      panel.style.top = '';
-      panel.style.transform = '';
-    }
+    // DMs and channel chats both live embedded in the main chat area now.
+    panel.classList.remove('dm-popup');
+    panel.style.left = '';
+    panel.style.top = '';
+    panel.style.transform = '';
 
     $('#chat-messages').innerHTML = '';
     const typingEl = $('#typing-indicator');

@@ -92,10 +92,6 @@
         <button class="tab-btn" data-tab="pending">Pending<span class="tab-unread-dot hidden" id="tab-dot-pending"></span></button>
         <button class="tab-btn" data-tab="add">Add Friend</button>
       </div>
-
-        <div id="tab-friends" class="tab-panel"></div>
-        <div id="tab-else" class="tab-panel hidden"></div>
-        <div id="tab-pending" class="tab-panel hidden"></div>
     </div>
 
     <!-- Group view: channel list + member list -->
@@ -153,6 +149,12 @@
 
     <div id="empty-state" class="empty-state">
       <div class="empty-icon"></div>
+    </div>
+
+    <div id="friends-lists-panel" class="friends-lists-panel hidden">
+      <div id="tab-friends" class="tab-panel"></div>
+      <div id="tab-else" class="tab-panel hidden"></div>
+      <div id="tab-pending" class="tab-panel hidden"></div>
     </div>
 
     <div id="add-friend-panel" class="add-friend-panel hidden">
