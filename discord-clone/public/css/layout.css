@@ -320,25 +320,21 @@
   cursor: pointer;
   margin-bottom: 2px;
   color: var(--text-muted);
-  transition: background 0.15s ease, color 0.15s ease;
   margin-left: 4px;
   position: relative;
 }
 .channel-row:hover { background: var(--bg-light); color: var(--text-normal); }
 .channel-row.active { background: #111214; color: #ece6d6; font-weight: 600; box-shadow: 2px 2px 0 #111214; }
+.channel-row.voice-row {
+  padding-top: 6px;
+  padding-bottom: 6px;
+  margin-bottom: 8px;
+}
 .channel-row.voice-row.active {
   background: var(--bg-light);
   color: var(--text-normal);
   font-weight: 600;
   box-shadow: none;
-  padding-top: 6px;
-  padding-bottom: 6px;
-  margin-bottom: 8px;
-}
-.channel-row.voice-row:hover {
-  padding-top: 6px;
-  padding-bottom: 6px;
-  margin-bottom: 8px;
 }
 
 .channel-row-label {

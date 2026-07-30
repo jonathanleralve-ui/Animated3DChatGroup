@@ -42,12 +42,12 @@
   width: 44px;
   height: 4px;
   border-radius: 0;
-  background: #111214;
+  background: #ffffff;
   transition: background 0.15s ease;
 }
 .voice-resize-handle:hover::after,
 .voice-resize-handle.dragging::after {
-  background: var(--blurple);
+  background: red;
 }
 
 #voice-panel {
