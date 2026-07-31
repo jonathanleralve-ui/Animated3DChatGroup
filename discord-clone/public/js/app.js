@@ -7,7 +7,6 @@ const App = (() => {
     setActiveRail($('#rail-home'));
     AppState.activeGroup = null;
     AppState.activeChat = null;
-    $('#sidebar-header').textContent = 'Friends';
     $('#friends-panel').classList.remove('hidden');
     $('#group-panel').classList.add('hidden');
     $('#add-friend-panel').classList.add('hidden');

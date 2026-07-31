@@ -98,7 +98,6 @@ const Groups = (() => {
     AppState.activeChat = null;
     App.setActiveRail(document.querySelector(`.rail-item[data-group-id="${g.id}"]`));
     clearGroupUnread(g.id);
-    $('#sidebar-header').textContent = g.name;
     $('#friends-panel').classList.add('hidden');
     $('#group-panel').classList.remove('hidden');
     $('#add-friend-panel').classList.add('hidden');
@@ -781,7 +780,6 @@ const Groups = (() => {
       Api.groups.rename(groupId, name, iconUrl)
         .then(({ group }) => {
           AppState.activeGroup = group;
-          $('#sidebar-header').textContent = group.name;
           closeGroupSettingsPanel();
           return refresh().then(() => {
             const el = document.querySelector(`.rail-item[data-group-id="${group.id}"]`);
@@ -854,7 +852,6 @@ const Groups = (() => {
     }
     if (AppState.activeGroup && AppState.activeGroup.id === group.id) {
       AppState.activeGroup = group;
-      $('#sidebar-header').textContent = group.name;
     }
   }
 

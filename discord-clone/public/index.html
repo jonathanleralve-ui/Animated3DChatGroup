@@ -82,8 +82,6 @@
 
   <!-- Sidebar: friends list OR group members -->
   <div class="sidebar">
-    <div class="sidebar-header" id="sidebar-header">Friends</div>
-
     <!-- Friends home view -->
     <div id="friends-panel">
       <div class="sidebar-tabs">
@@ -96,14 +94,6 @@
 
     <!-- Group view: channel list + member list -->
     <div id="group-panel" class="hidden">
-      <div class="group-panel-header">
-        <div class="group-panel-actions">
-          <button class="btn-icon" id="group-settings-btn" title="Group Settings">⚙</button>
-          <button class="btn-icon" id="group-add-member-btn" title="Invite people">+</button>
-          <button class="btn-icon" id="group-leave-btn" title="Leave group">⎋</button>
-        </div>
-      </div>
-
       <div id="channel-list" class="channel-list"></div>
 
       <div class="sidebar-divider"></div>
@@ -111,6 +101,14 @@
       <div class="member-section">
         <div class="member-section-header">MEMBERS</div>
         <div id="group-members-list"></div>
+      </div>
+
+      <div class="group-panel-header">
+        <div class="group-panel-actions">
+          <button class="btn-icon" id="group-settings-btn" title="Group Settings">⚙</button>
+          <button class="btn-icon" id="group-add-member-btn" title="Invite people">+</button>
+          <button class="btn-icon" id="group-leave-btn" title="Leave group">⎋</button>
+        </div>
       </div>
     </div>
 

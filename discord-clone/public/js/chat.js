@@ -73,7 +73,6 @@ const Chat = (() => {
     App.setActiveRail($('#rail-home'));
     Groups.clearDmUnread(friend.id);
     Friends.clearSenderTabUnread(friend.id);
-    $('#sidebar-header').textContent = 'Friends';
     $('#group-panel').classList.add('hidden');
     $('#friends-panel').classList.remove('hidden');
     VoiceChat.refreshPanelForGroup(null);
