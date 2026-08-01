@@ -138,6 +138,9 @@ const Friends = (() => {
   }
 
   function buildFriendCard(f) {
+    const wrap = document.createElement('div');
+    wrap.className = 'profile-preview-wrap';
+
     const card = document.createElement('div');
     card.className = 'profile-preview-card friend-card';
 
@@ -193,7 +196,14 @@ const Friends = (() => {
     }
 
     card.addEventListener('click', () => Chat.openDM(f));
-    return card;
+
+    wrap.appendChild(card);
+    const effectsLayer = document.createElement('div');
+    effectsLayer.className = 'profile-effects-layer';
+    Utils.renderProfileEffects(effectsLayer, f.profileEffects);
+    wrap.appendChild(effectsLayer);
+
+    return wrap;
   }
 
   function buildIncomingRow(u) {

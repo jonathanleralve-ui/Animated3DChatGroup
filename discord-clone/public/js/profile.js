@@ -289,6 +289,7 @@ const Profile = (() => {
       el.appendChild(removeBtn);
 
       el.addEventListener('pointerdown', (e) => {
+        if (e.target.closest('.profile-effect-remove-btn')) return;
         e.preventDefault();
         e.stopPropagation();
         selectedEffectId = fx.id;
