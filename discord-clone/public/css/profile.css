@@ -144,6 +144,85 @@
   to { transform: rotate(360deg); }
 }
 
+/* Profile Effects: user-uploaded GIF "stickers" scattered around the card
+   (wings, fire, sparkles, etc.) - a BYO-asset version of Nitro profile
+   effects. The card itself keeps overflow:hidden (banner/avatar framing
+   depends on that), so the effects layer lives in a separate sibling that's
+   free to overflow - .profile-preview-wrap gives both a shared coordinate
+   system centered on the card. */
+.profile-preview-wrap {
+  position: relative;
+}
+
+.profile-effects-layer {
+  position: absolute;
+  inset: 0;
+  overflow: visible;
+  pointer-events: none;
+  z-index: 4;
+}
+
+/* Positioned via inline left/top (card-center + stored x/y offset) and
+   sized via inline width/height (base size * stored scale) - set in JS. */
+.profile-effect-sticker {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: auto;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+.profile-effect-sticker img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.35));
+}
+
+/* Editable-mode only (edit-profile preview, not the read-only member/friend
+   cards): a dashed outline + remove button on hover/selection, and a grab
+   cursor since these are drag-to-reposition. */
+.profile-effect-sticker.editable { cursor: grab; }
+.profile-effect-sticker.editable:hover,
+.profile-effect-sticker.editable.selected {
+  outline: 2px dashed var(--blurple);
+  outline-offset: 4px;
+  border-radius: 6px;
+}
+.profile-effect-sticker.dragging { cursor: grabbing; }
+
+.profile-effect-remove-btn {
+  position: absolute;
+  top: -10px;
+  right: -10px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: none;
+  background: var(--red);
+  color: #fff;
+  font-size: 11px;
+  line-height: 1;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 1;
+}
+.profile-effect-sticker.editable:hover .profile-effect-remove-btn,
+.profile-effect-sticker.editable.selected .profile-effect-remove-btn {
+  display: flex;
+}
+
+.profile-effects-count {
+  color: var(--text-muted);
+  font-size: 12px;
+  margin-left: 10px;
+}
+
 .profile-preview-body {
   padding: 12px 16px 18px;
   text-align: center;

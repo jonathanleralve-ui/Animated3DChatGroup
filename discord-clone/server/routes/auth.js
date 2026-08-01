@@ -1,6 +1,7 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
 const db = require('../db');
 const auth = require('../middleware/auth');
 const { JWT_SECRET } = require('../config');
@@ -14,6 +15,9 @@ function randomColor() {
 
 const AVATAR_BORDER_STYLES = ['none', 'solid', 'glow', 'rainbow'];
 const HEX_COLOR_RE = /^#[0-9a-fA-F]{6}$/;
+// Cap on how many GIF stickers a card can carry - keeps the JSON blob and
+// the card itself from growing unbounded.
+const MAX_PROFILE_EFFECTS = 8;
 
 function publicUser(u) {
   return {
@@ -46,6 +50,7 @@ function publicUser(u) {
     avatarBorderStyle: u.avatar_border_style,
     avatarBorderColor: u.avatar_border_color,
     profileAccentColor: u.profile_accent_color,
+    profileEffects: u.profile_effects || [],
     status: u.status
   };
 }
@@ -135,7 +140,8 @@ router.patch('/me', auth, async (req, res) => {
       avatarModelMouthShapeKeys,
       avatarModelLookEnabled,
       bannerUrl, bannerZoom, bannerOffsetX, bannerOffsetY,
-      avatarBorderStyle, avatarBorderColor, profileAccentColor
+      avatarBorderStyle, avatarBorderColor, profileAccentColor,
+      profileEffects
     } = req.body || {};
     const updates = [];
     const values = [];
@@ -361,6 +367,44 @@ router.patch('/me', auth, async (req, res) => {
       }
       updates.push(`profile_accent_color = $${idx++}`);
       values.push(profileAccentColor || null);
+    }
+
+    // Card effects: user-uploaded GIF stickers scattered around the card.
+    // url must already be an uploaded file (this route doesn't accept raw
+    // uploads itself - the client uploads each GIF via /api/upload first,
+    // same as it does for the avatar photo and banner). Ids are always
+    // regenerated server-side rather than trusting whatever the client
+    // sent, and x/y/scale are clamped the same way the banner/3D-model
+    // framing values are - they come from a drag/scroll gesture, so a
+    // slightly out-of-range value shouldn't fail the whole save.
+    if (profileEffects !== undefined) {
+      if (!Array.isArray(profileEffects)) {
+        return res.status(400).json({ error: 'Invalid profile effects' });
+      }
+      if (profileEffects.length > MAX_PROFILE_EFFECTS) {
+        return res.status(400).json({ error: `You can only have up to ${MAX_PROFILE_EFFECTS} card effects` });
+      }
+      const cleaned = [];
+      for (const fx of profileEffects) {
+        if (!fx || typeof fx.url !== 'string' || !fx.url.trim()) {
+          return res.status(400).json({ error: 'Each card effect needs an image' });
+        }
+        if (fx.url.length > 500) {
+          return res.status(400).json({ error: 'Card effect image URL is too long' });
+        }
+        const x = Number(fx.x);
+        const y = Number(fx.y);
+        const scale = Number(fx.scale);
+        cleaned.push({
+          id: crypto.randomBytes(6).toString('hex'),
+          url: fx.url,
+          x: Math.min(160, Math.max(-160, Number.isFinite(x) ? x : 0)),
+          y: Math.min(160, Math.max(-160, Number.isFinite(y) ? y : 0)),
+          scale: Math.min(2.5, Math.max(0.3, Number.isFinite(scale) ? scale : 1))
+        });
+      }
+      updates.push(`profile_effects = $${idx++}::jsonb`);
+      values.push(JSON.stringify(cleaned));
     }
 
     if (updates.length === 0) {

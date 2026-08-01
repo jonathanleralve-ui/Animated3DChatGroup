@@ -21,6 +21,7 @@ function publicUser(u) {
     avatarBorderStyle: u.avatar_border_style,
     avatarBorderColor: u.avatar_border_color,
     profileAccentColor: u.profile_accent_color,
+    profileEffects: u.profile_effects || [],
     status: u.status
   };
 }

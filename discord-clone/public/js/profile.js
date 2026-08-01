@@ -86,6 +86,17 @@ const Profile = (() => {
   // the plain default card background.
   let selectedAccentColor = null;
 
+  // Card Effects: user-uploaded GIF stickers (wings, fire, sparkles, etc.)
+  // scattered around the card. Each entry is { id, url, x, y, scale } - id
+  // is a client-side temp id (the server always regenerates its own on
+  // save, so duplicates/collisions there don't matter). Uploaded to the
+  // server immediately on pick (same reasoning as the 3D model upload -
+  // there's no good local-only preview path once it needs a real URL to
+  // reuse elsewhere), rather than deferred until Save.
+  let selectedEffects = [];
+  let selectedEffectId = null; // which sticker is selected (shows remove btn + outline)
+  let effectDragState = null; // { id, startX, startY, startFxX, startFxY, moved } while dragging, else null
+
   // Whether the 3D preview has been mounted yet for this modal session.
   // Mounting is deferred until the "3D Voice Avatar" tab is actually opened
   // (see switchTab) so three.js sees a real, already-laid-out box instead of
@@ -227,6 +238,124 @@ const Profile = (() => {
       list.appendChild(swatch);
     });
     $('#edit-profile-accentcolor-custom').value = selectedAccentColor || '#5865F2';
+  }
+
+  // Golden-angle spiral so successively added stickers spread out around
+  // the card instead of stacking in the same spot - same trick used for
+  // evenly distributing points without any layout math.
+  function defaultEffectPosition(index) {
+    const angle = (index * 137.5) % 360;
+    const radius = 100 + (index % 3) * 22;
+    const rad = (angle * Math.PI) / 180;
+    return {
+      x: Math.round(Math.cos(rad) * radius),
+      y: Math.round(Math.sin(rad) * radius * 0.65)
+    };
+  }
+
+  function renderEffectsLayer() {
+    const layer = $('#edit-profile-effects-layer');
+    layer.innerHTML = '';
+    $('#edit-profile-effect-count').textContent = selectedEffects.length
+      ? `${selectedEffects.length}/8`
+      : '';
+
+    selectedEffects.forEach((fx) => {
+      const el = document.createElement('div');
+      el.className = `profile-effect-sticker editable${fx.id === selectedEffectId ? ' selected' : ''}`;
+      const size = Utils.EFFECT_BASE_SIZE * (fx.scale || 1);
+      el.style.width = `${size}px`;
+      el.style.height = `${size}px`;
+      el.style.left = `calc(50% + ${fx.x}px)`;
+      el.style.top = `calc(50% + ${fx.y}px)`;
+
+      const img = document.createElement('img');
+      img.src = fx.url;
+      img.alt = '';
+      img.draggable = false;
+      el.appendChild(img);
+
+      const removeBtn = document.createElement('button');
+      removeBtn.type = 'button';
+      removeBtn.className = 'profile-effect-remove-btn';
+      removeBtn.title = 'Remove';
+      removeBtn.textContent = '✕';
+      removeBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        selectedEffects = selectedEffects.filter((x) => x.id !== fx.id);
+        if (selectedEffectId === fx.id) selectedEffectId = null;
+        renderEffectsLayer();
+      });
+      el.appendChild(removeBtn);
+
+      el.addEventListener('pointerdown', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        selectedEffectId = fx.id;
+        effectDragState = { id: fx.id, startX: e.clientX, startY: e.clientY, startFxX: fx.x, startFxY: fx.y, moved: false };
+        el.classList.add('dragging');
+        el.setPointerCapture(e.pointerId);
+      });
+      el.addEventListener('pointermove', (e) => {
+        if (!effectDragState || effectDragState.id !== fx.id) return;
+        const dx = e.clientX - effectDragState.startX;
+        const dy = e.clientY - effectDragState.startY;
+        if (Math.abs(dx) > 2 || Math.abs(dy) > 2) effectDragState.moved = true;
+        fx.x = Math.min(160, Math.max(-160, effectDragState.startFxX + dx));
+        fx.y = Math.min(160, Math.max(-160, effectDragState.startFxY + dy));
+        el.style.left = `calc(50% + ${fx.x}px)`;
+        el.style.top = `calc(50% + ${fx.y}px)`;
+      });
+      const endDrag = (e) => {
+        if (!effectDragState || effectDragState.id !== fx.id) return;
+        el.classList.remove('dragging');
+        effectDragState = null;
+      };
+      el.addEventListener('pointerup', endDrag);
+      el.addEventListener('pointercancel', endDrag);
+
+      el.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        fx.scale = Math.min(2.5, Math.max(0.3, (fx.scale || 1) - e.deltaY * 0.001));
+        const s = Utils.EFFECT_BASE_SIZE * fx.scale;
+        el.style.width = `${s}px`;
+        el.style.height = `${s}px`;
+      }, { passive: false });
+
+      layer.appendChild(el);
+    });
+  }
+
+  function addEffectFiles(fileList) {
+    const errorEl = $('#edit-profile-effect-error');
+    errorEl.textContent = '';
+    const files = Array.from(fileList || []);
+    if (!files.length) return;
+
+    const room = 8 - selectedEffects.length;
+    if (room <= 0) {
+      errorEl.textContent = 'You can only have up to 8 card effects';
+      return;
+    }
+    const toAdd = files.slice(0, room);
+    if (files.length > toAdd.length) {
+      errorEl.textContent = 'You can only have up to 8 card effects - added as many as would fit';
+    }
+
+    toAdd.forEach((file) => {
+      if (!/^image\/gif$/i.test(file.type) && !/\.gif$/i.test(file.name)) {
+        errorEl.textContent = 'Please choose GIF files';
+        return;
+      }
+      const tempId = `pending-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      Api.messages.upload(file)
+        .then((data) => {
+          const pos = defaultEffectPosition(selectedEffects.length);
+          selectedEffects.push({ id: tempId, url: data.url, x: pos.x, y: pos.y, scale: 1 });
+          renderEffectsLayer();
+        })
+        .catch((err) => { errorEl.textContent = err.message; });
+    });
   }
 
   function renderModelSection() {
@@ -787,12 +916,16 @@ const Profile = (() => {
     selectedAvatarBorderStyle = AppState.me.avatarBorderStyle || 'none';
     selectedAvatarBorderColor = AppState.me.avatarBorderColor || null;
     selectedAccentColor = AppState.me.profileAccentColor || null;
+    selectedEffects = (AppState.me.profileEffects || []).map((fx) => ({ ...fx }));
+    selectedEffectId = null;
+    $('#edit-profile-effect-error').textContent = '';
     renderPhotoPreview();
     renderBannerPreview();
     renderNameColorSwatches();
     renderBorderStyleGroup();
     renderBorderColorSwatches();
     renderAccentColorSwatches();
+    renderEffectsLayer();
     renderModelSection();
     renderPreviewCard();
     modelPreviewMounted = false;
@@ -847,7 +980,8 @@ const Profile = (() => {
         avatarModelLookEnabled: selectedLookEnabled,
         bannerUrl, bannerZoom: selectedBannerZoom, bannerOffsetX: selectedBannerOffsetX, bannerOffsetY: selectedBannerOffsetY,
         avatarBorderStyle: selectedAvatarBorderStyle, avatarBorderColor: selectedAvatarBorderColor,
-        profileAccentColor: selectedAccentColor
+        profileAccentColor: selectedAccentColor,
+        profileEffects: selectedEffects.map(({ url, x, y, scale }) => ({ url, x, y, scale }))
       })
         .then((data) => {
           Object.assign(AppState.me, data.user);
@@ -961,6 +1095,17 @@ const Profile = (() => {
       selectedAccentColor = e.target.value;
       renderAccentColorSwatches();
       renderPreviewCard();
+    });
+
+    $('#edit-profile-effect-add-btn').addEventListener('click', () => $('#edit-profile-effect-file').click());
+    $('#edit-profile-effect-file').addEventListener('change', (e) => {
+      addEffectFiles(e.target.files);
+      e.target.value = '';
+    });
+    $('#edit-profile-effects-layer').addEventListener('pointerdown', (e) => {
+      if (e.target.closest('.profile-effect-sticker')) return;
+      selectedEffectId = null;
+      renderEffectsLayer();
     });
 
     $('#edit-profile-displayname').addEventListener('keydown', (e) => {

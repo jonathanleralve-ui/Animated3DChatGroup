@@ -116,6 +116,16 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_border_color TEXT;
 -- color. NULL means "no tint, just the plain card background".
 ALTER TABLE users ADD COLUMN IF NOT EXISTS profile_accent_color TEXT;
 
+-- User-uploaded GIF "profile effects" - decorative stickers (wings, fire,
+-- sparkles, seasonal stuff, whatever) scattered around the profile card.
+-- A BYO-image version of Nitro profile effects rather than a curated
+-- catalog. Stored as a JSON array of { id, url, x, y, scale } objects:
+-- x/y are pixel offsets from the card's center (same convention as
+-- banner_offset_x/y), scale is a size multiplier off a fixed base sticker
+-- size (see EFFECT_BASE_SIZE in public/js/utils.js). Count and per-field
+-- ranges are enforced server-side in routes/auth.js (MAX_PROFILE_EFFECTS).
+ALTER TABLE users ADD COLUMN IF NOT EXISTS profile_effects JSONB NOT NULL DEFAULT '[]'::jsonb;
+
 CREATE TABLE IF NOT EXISTS friendships (
   id SERIAL PRIMARY KEY,
   requester_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,

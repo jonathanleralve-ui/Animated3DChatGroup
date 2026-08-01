@@ -39,6 +39,38 @@ const Utils = (() => {
     return avatarEl(user);
   }
 
+  // Base size (px) a profile effect sticker renders at before its own
+  // `scale` multiplier is applied - shared between the editable version in
+  // profile.js and this read-only renderer so a sticker looks the same
+  // size everywhere it's shown.
+  const EFFECT_BASE_SIZE = 56;
+
+  // Renders a user's uploaded GIF "profile effects" (wings/fire/sparkles/
+  // etc.) into `layerEl` as plain, non-interactive positioned stickers -
+  // used by the member-card popover and friend cards. The editable version
+  // (drag to move, scroll to resize, click to remove) lives in profile.js
+  // since it needs a lot more state than a read-only display does.
+  function renderProfileEffects(layerEl, effects) {
+    if (!layerEl) return;
+    layerEl.innerHTML = '';
+    (effects || []).forEach((fx) => {
+      if (!fx || !fx.url) return;
+      const el = document.createElement('div');
+      el.className = 'profile-effect-sticker';
+      const size = EFFECT_BASE_SIZE * (fx.scale || 1);
+      el.style.width = `${size}px`;
+      el.style.height = `${size}px`;
+      el.style.left = `calc(50% + ${fx.x || 0}px)`;
+      el.style.top = `calc(50% + ${fx.y || 0}px)`;
+      const img = document.createElement('img');
+      img.src = fx.url;
+      img.alt = '';
+      img.draggable = false;
+      el.appendChild(img);
+      layerEl.appendChild(el);
+    });
+  }
+
   function applyNameColor(el, color) {
     if (color && /^#[0-9a-fA-F]{6}$/.test(color)) {
       el.style.color = color;
@@ -326,5 +358,5 @@ const Utils = (() => {
     handle.addEventListener('pointerdown', onPointerDown);
   }
 
-  return { $, $$, initials, escapeHtml, formatTime, avatarEl, avatarWithStatus, applyNameColor, applyCardTheming, linkifyText, getVideoEmbedUrl, isEmojiOnly, makeModalDraggable, makeFloatingDraggable };
+  return { $, $$, initials, escapeHtml, formatTime, avatarEl, avatarWithStatus, applyNameColor, applyCardTheming, EFFECT_BASE_SIZE, renderProfileEffects, linkifyText, getVideoEmbedUrl, isEmojiOnly, makeModalDraggable, makeFloatingDraggable };
 })();

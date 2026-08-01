@@ -173,27 +173,30 @@
       <div class="profile-panel-inner profile-panel-inner--wide">
         <div class="profile-editor">
           <aside class="profile-editor-side">
-            <div class="profile-preview-card" id="edit-profile-preview-card">
-              <div class="profile-preview-banner" id="edit-profile-banner">
-                <div class="profile-banner-actions">
-                  <input type="file" id="edit-profile-banner-file" accept="image/*" class="hidden" />
-                  <button class="btn-icon-round profile-banner-btn" id="edit-profile-banner-upload-btn" type="button" title="Change banner">🖼️</button>
-                  <button class="btn-icon-round profile-banner-btn hidden" id="edit-profile-banner-remove-btn" type="button" title="Remove banner">✕</button>
+            <div class="profile-preview-wrap" id="edit-profile-preview-wrap">
+              <div class="profile-preview-card" id="edit-profile-preview-card">
+                <div class="profile-preview-banner" id="edit-profile-banner">
+                  <div class="profile-banner-actions">
+                    <input type="file" id="edit-profile-banner-file" accept="image/*" class="hidden" />
+                    <button class="btn-icon-round profile-banner-btn" id="edit-profile-banner-upload-btn" type="button" title="Change banner">🖼️</button>
+                    <button class="btn-icon-round profile-banner-btn hidden" id="edit-profile-banner-remove-btn" type="button" title="Remove banner">✕</button>
+                  </div>
+                </div>
+                <div class="profile-preview-avatar-ring" id="edit-profile-avatar-ring">
+                  <div class="profile-photo-preview profile-preview-avatar" id="edit-profile-photo-preview"></div>
+                </div>
+                <div class="profile-preview-body">
+                  <div class="profile-preview-name" id="edit-profile-preview-name">Display Name</div>
+                  <p class="profile-preview-hint">This is how your name appears to others</p>
+                  <div class="profile-photo-actions">
+                    <input type="file" id="edit-profile-file" accept="image/*" class="hidden" />
+                    <button class="btn-secondary btn-small" id="edit-profile-upload-btn" type="button">Upload Image</button>
+                    <button class="btn-secondary btn-small hidden" id="edit-profile-remove-photo-btn" type="button">Remove</button>
+                  </div>
+                  <p class="profile-preview-hint profile-preview-hint--gif">PNG, JPG, or animated GIF</p>
                 </div>
               </div>
-              <div class="profile-preview-avatar-ring" id="edit-profile-avatar-ring">
-                <div class="profile-photo-preview profile-preview-avatar" id="edit-profile-photo-preview"></div>
-              </div>
-              <div class="profile-preview-body">
-                <div class="profile-preview-name" id="edit-profile-preview-name">Display Name</div>
-                <p class="profile-preview-hint">This is how your name appears to others</p>
-                <div class="profile-photo-actions">
-                  <input type="file" id="edit-profile-file" accept="image/*" class="hidden" />
-                  <button class="btn-secondary btn-small" id="edit-profile-upload-btn" type="button">Upload Image</button>
-                  <button class="btn-secondary btn-small hidden" id="edit-profile-remove-photo-btn" type="button">Remove</button>
-                </div>
-                <p class="profile-preview-hint profile-preview-hint--gif">PNG, JPG, or animated GIF</p>
-              </div>
+              <div class="profile-effects-layer" id="edit-profile-effects-layer"></div>
             </div>
 
             <nav class="profile-tabs" id="edit-profile-tabs">
@@ -243,6 +246,15 @@
                   <input type="color" id="edit-profile-accentcolor-custom" class="custom-color-input" title="Custom color" />
                   <span class="custom-color-label">Custom</span>
                 </div>
+              </section>
+
+              <section class="profile-section">
+                <p class="profile-section-title">Card Effects</p>
+                <p class="profile-panel-sub profile-section-sub">Upload GIFs (wings, fire, sparkles, whatever) and drag them into place around your card. Scroll on one to resize it, click the ✕ to remove it.</p>
+                <input type="file" id="edit-profile-effect-file" accept=".gif,image/gif" multiple class="hidden" />
+                <button class="btn-secondary btn-small" id="edit-profile-effect-add-btn" type="button">+ Add GIF</button>
+                <span class="profile-effects-count" id="edit-profile-effect-count"></span>
+                <div class="auth-error" id="edit-profile-effect-error"></div>
               </section>
             </div>
 
@@ -713,16 +725,19 @@
 
 <div class="member-card-backdrop hidden" id="member-card-backdrop"></div>
 <div class="member-card-popover hidden" id="member-card-popover">
-  <div class="profile-preview-card" id="member-card-preview-card">
-    <div class="profile-preview-banner" id="member-card-banner"></div>
-    <div class="profile-preview-avatar-ring" id="member-card-avatar-ring">
-      <div class="profile-photo-preview profile-preview-avatar" id="member-card-avatar"></div>
+  <div class="profile-preview-wrap">
+    <div class="profile-preview-card" id="member-card-preview-card">
+      <div class="profile-preview-banner" id="member-card-banner"></div>
+      <div class="profile-preview-avatar-ring" id="member-card-avatar-ring">
+        <div class="profile-photo-preview profile-preview-avatar" id="member-card-avatar"></div>
+      </div>
+      <div class="profile-preview-body">
+        <div class="profile-preview-name" id="member-card-name">Display Name</div>
+        <div class="profile-preview-username" id="member-card-username"></div>
+        <button class="btn-primary btn-small member-card-send-btn" id="member-card-send-btn" type="button">✉️ Send Message</button>
+      </div>
     </div>
-    <div class="profile-preview-body">
-      <div class="profile-preview-name" id="member-card-name">Display Name</div>
-      <div class="profile-preview-username" id="member-card-username"></div>
-      <button class="btn-primary btn-small member-card-send-btn" id="member-card-send-btn" type="button">✉️ Send Message</button>
-    </div>
+    <div class="profile-effects-layer" id="member-card-effects-layer"></div>
   </div>
 </div>
 
