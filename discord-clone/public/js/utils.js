@@ -62,6 +62,7 @@ const Utils = (() => {
       el.style.height = `${size}px`;
       el.style.left = `calc(50% + ${fx.x || 0}px)`;
       el.style.top = `calc(50% + ${fx.y || 0}px)`;
+      el.style.setProperty('--fx-rotation', `${fx.rotation || 0}deg`);
       const img = document.createElement('img');
       img.src = fx.url;
       img.alt = '';

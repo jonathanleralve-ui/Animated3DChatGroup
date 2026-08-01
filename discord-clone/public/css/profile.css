@@ -168,7 +168,7 @@
   position: absolute;
   top: 50%;
   left: 50%;
-  transform: translate(-50%, -50%);
+  transform: translate(-50%, -50%) rotate(var(--fx-rotation, 0deg));
   pointer-events: auto;
   user-select: none;
   -webkit-user-drag: none;
@@ -183,8 +183,8 @@
 }
 
 /* Editable-mode only (edit-profile preview, not the read-only member/friend
-   cards): a dashed outline + remove button on hover/selection, and a grab
-   cursor since these are drag-to-reposition. */
+   cards): a dashed outline + remove/rotate/resize handles on hover/
+   selection, and a grab cursor since these are drag-to-reposition. */
 .profile-effect-sticker.editable { cursor: grab; }
 .profile-effect-sticker.editable:hover,
 .profile-effect-sticker.editable.selected {
@@ -214,6 +214,55 @@
 }
 .profile-effect-sticker.editable:hover .profile-effect-remove-btn,
 .profile-effect-sticker.editable.selected .profile-effect-remove-btn {
+  display: flex;
+}
+
+/* Rotate handle: sits on the top-left corner edge (mirroring the remove
+   button on the top-right). It's a child of the sticker so it rotates
+   along with it (same convention as most design tools) - the center-point
+   math in profile.js is computed fresh from the element's bounding box at
+   drag-start, so it stays correct at any angle. */
+.profile-effect-rotate-handle {
+  position: absolute;
+  top: -10px;
+  left: -10px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: none;
+  background: var(--bg-lighter);
+  color: var(--text-normal);
+  font-size: 13px;
+  line-height: 1;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  cursor: grab;
+  z-index: 1;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+}
+.profile-effect-rotate-handle:active { cursor: grabbing; }
+
+/* Resize handle: bottom-right corner square, dragged outward/inward to
+   scale the sticker (distance-from-center based, see profile.js). */
+.profile-effect-resize-handle {
+  position: absolute;
+  bottom: -8px;
+  right: -8px;
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  border: 2px solid var(--bg-lighter);
+  background: var(--blurple);
+  display: none;
+  cursor: nwse-resize;
+  z-index: 1;
+}
+
+.profile-effect-sticker.editable:hover .profile-effect-rotate-handle,
+.profile-effect-sticker.editable.selected .profile-effect-rotate-handle,
+.profile-effect-sticker.editable:hover .profile-effect-resize-handle,
+.profile-effect-sticker.editable.selected .profile-effect-resize-handle {
   display: flex;
 }
 

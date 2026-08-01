@@ -96,6 +96,8 @@ const Profile = (() => {
   let selectedEffects = [];
   let selectedEffectId = null; // which sticker is selected (shows remove btn + outline)
   let effectDragState = null; // { id, startX, startY, startFxX, startFxY, moved } while dragging, else null
+  let effectRotateState = null; // { id, centerX, centerY, startAngle, startRotation } while rotating, else null
+  let effectResizeState = null; // { id, centerX, centerY, startDist, startScale } while resizing, else null
 
   // Whether the 3D preview has been mounted yet for this modal session.
   // Mounting is deferred until the "3D Voice Avatar" tab is actually opened
@@ -268,6 +270,7 @@ const Profile = (() => {
       el.style.height = `${size}px`;
       el.style.left = `calc(50% + ${fx.x}px)`;
       el.style.top = `calc(50% + ${fx.y}px)`;
+      el.style.setProperty('--fx-rotation', `${fx.rotation || 0}deg`);
 
       const img = document.createElement('img');
       img.src = fx.url;
@@ -288,8 +291,28 @@ const Profile = (() => {
       });
       el.appendChild(removeBtn);
 
+      // Rotate handle: drag around the sticker's center, angle-to-pointer
+      // becomes the new rotation. Its own pointerdown stops propagation so
+      // it doesn't also trigger the move-drag below.
+      const rotateHandle = document.createElement('button');
+      rotateHandle.type = 'button';
+      rotateHandle.className = 'profile-effect-rotate-handle';
+      rotateHandle.title = 'Drag to rotate';
+      rotateHandle.textContent = '⟳';
+      el.appendChild(rotateHandle);
+
+      // Resize handle: drag out from the bottom-right corner, distance from
+      // center vs. the distance at drag-start scales the sticker. Wheel-to-
+      // resize (below) still works too - this just gives a visible, precise,
+      // touch-friendly handle for the same thing.
+      const resizeHandle = document.createElement('button');
+      resizeHandle.type = 'button';
+      resizeHandle.className = 'profile-effect-resize-handle';
+      resizeHandle.title = 'Drag to resize';
+      el.appendChild(resizeHandle);
+
       el.addEventListener('pointerdown', (e) => {
-        if (e.target.closest('.profile-effect-remove-btn')) return;
+        if (e.target.closest('.profile-effect-remove-btn, .profile-effect-rotate-handle, .profile-effect-resize-handle')) return;
         e.preventDefault();
         e.stopPropagation();
         selectedEffectId = fx.id;
@@ -314,6 +337,50 @@ const Profile = (() => {
       };
       el.addEventListener('pointerup', endDrag);
       el.addEventListener('pointercancel', endDrag);
+
+      rotateHandle.addEventListener('pointerdown', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        selectedEffectId = fx.id;
+        const rect = el.getBoundingClientRect();
+        const centerX = rect.left + rect.width / 2;
+        const centerY = rect.top + rect.height / 2;
+        const startAngle = Math.atan2(e.clientY - centerY, e.clientX - centerX) * (180 / Math.PI);
+        effectRotateState = { id: fx.id, centerX, centerY, startAngle, startRotation: fx.rotation || 0 };
+        rotateHandle.setPointerCapture(e.pointerId);
+      });
+      rotateHandle.addEventListener('pointermove', (e) => {
+        if (!effectRotateState || effectRotateState.id !== fx.id) return;
+        const angle = Math.atan2(e.clientY - effectRotateState.centerY, e.clientX - effectRotateState.centerX) * (180 / Math.PI);
+        fx.rotation = Math.round(effectRotateState.startRotation + (angle - effectRotateState.startAngle));
+        el.style.setProperty('--fx-rotation', `${fx.rotation}deg`);
+      });
+      const endRotate = () => { effectRotateState = null; };
+      rotateHandle.addEventListener('pointerup', endRotate);
+      rotateHandle.addEventListener('pointercancel', endRotate);
+
+      resizeHandle.addEventListener('pointerdown', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        selectedEffectId = fx.id;
+        const rect = el.getBoundingClientRect();
+        const centerX = rect.left + rect.width / 2;
+        const centerY = rect.top + rect.height / 2;
+        const startDist = Math.max(10, Math.hypot(e.clientX - centerX, e.clientY - centerY));
+        effectResizeState = { id: fx.id, centerX, centerY, startDist, startScale: fx.scale || 1 };
+        resizeHandle.setPointerCapture(e.pointerId);
+      });
+      resizeHandle.addEventListener('pointermove', (e) => {
+        if (!effectResizeState || effectResizeState.id !== fx.id) return;
+        const dist = Math.hypot(e.clientX - effectResizeState.centerX, e.clientY - effectResizeState.centerY);
+        fx.scale = Math.min(2.5, Math.max(0.3, effectResizeState.startScale * (dist / effectResizeState.startDist)));
+        const s = Utils.EFFECT_BASE_SIZE * fx.scale;
+        el.style.width = `${s}px`;
+        el.style.height = `${s}px`;
+      });
+      const endResize = () => { effectResizeState = null; };
+      resizeHandle.addEventListener('pointerup', endResize);
+      resizeHandle.addEventListener('pointercancel', endResize);
 
       el.addEventListener('wheel', (e) => {
         e.preventDefault();
@@ -352,7 +419,7 @@ const Profile = (() => {
       Api.messages.upload(file)
         .then((data) => {
           const pos = defaultEffectPosition(selectedEffects.length);
-          selectedEffects.push({ id: tempId, url: data.url, x: pos.x, y: pos.y, scale: 1 });
+          selectedEffects.push({ id: tempId, url: data.url, x: pos.x, y: pos.y, scale: 1, rotation: 0 });
           renderEffectsLayer();
         })
         .catch((err) => { errorEl.textContent = err.message; });
@@ -982,7 +1049,7 @@ const Profile = (() => {
         bannerUrl, bannerZoom: selectedBannerZoom, bannerOffsetX: selectedBannerOffsetX, bannerOffsetY: selectedBannerOffsetY,
         avatarBorderStyle: selectedAvatarBorderStyle, avatarBorderColor: selectedAvatarBorderColor,
         profileAccentColor: selectedAccentColor,
-        profileEffects: selectedEffects.map(({ url, x, y, scale }) => ({ url, x, y, scale }))
+        profileEffects: selectedEffects.map(({ url, x, y, scale, rotation }) => ({ url, x, y, scale, rotation }))
       })
         .then((data) => {
           Object.assign(AppState.me, data.user);
