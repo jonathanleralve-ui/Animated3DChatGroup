@@ -163,6 +163,11 @@
   margin: 4px 0 14px;
 }
 
+.profile-preview-hint--gif {
+  margin: 8px 0 0;
+  font-size: 11px;
+}
+
 .profile-preview-body .profile-photo-actions {
   justify-content: center;
 }
