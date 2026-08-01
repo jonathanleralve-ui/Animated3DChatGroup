@@ -159,7 +159,10 @@
   inset: 0;
   overflow: visible;
   pointer-events: none;
-  z-index: 4;
+  /* Below .profile-preview-avatar-ring (z-index: 3) so the avatar photo and
+     its border always sit in front of stickers, but above the banner
+     (z-index: 2) so stickers can still overlap that. */
+  z-index: 2;
 }
 
 /* Positioned via inline left/top (card-center + stored x/y offset) and
@@ -273,8 +276,19 @@
 }
 
 .profile-preview-body {
+  position: relative;
+  z-index: 3;
   padding: 12px 16px 18px;
   text-align: center;
+  /* This box now sits above the effects layer (stickers can render behind
+     the name/username), but its own rectangle is mostly empty padding -
+     without this, that empty space would still catch clicks/drags meant
+     for a sticker positioned underneath it. Re-enable pointer-events on
+     the actual content so text/buttons stay interactive. */
+  pointer-events: none;
+}
+.profile-preview-body > * {
+  pointer-events: auto;
 }
 
 .profile-preview-name {
