@@ -280,7 +280,7 @@
 .profile-effects-list {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 16px 14px;
   margin-top: 10px;
 }
 
@@ -324,6 +324,38 @@
   align-items: center;
   justify-content: center;
   cursor: pointer;
+}
+
+/* Layer-order controls: bottom corners of the chip (top-right is taken by
+   remove above). Forward (bring toward front/top) on the right, backward
+   (send toward back/bottom) on the left - mirrors reading order so
+   "forward" and "later in the row of buttons" line up. Disabled at
+   whichever end the sticker's already at, same greyed/inert treatment
+   used elsewhere for maxed-out controls. */
+.profile-effect-chip-order {
+  position: absolute;
+  bottom: -6px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: none;
+  background: var(--bg-lighter);
+  color: var(--text-normal);
+  font-size: 9px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+}
+.profile-effect-chip-order--backward { left: -6px; }
+.profile-effect-chip-order--forward { right: -6px; }
+.profile-effect-chip-order:hover:not(:disabled) { background: var(--blurple); color: #fff; }
+.profile-effect-chip-order:disabled {
+  opacity: 0.35;
+  cursor: default;
+  box-shadow: none;
 }
 
 .profile-preview-body {

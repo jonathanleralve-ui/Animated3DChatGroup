@@ -402,13 +402,30 @@ const Profile = (() => {
     renderEffectsList();
   }
 
+  // Layer order: which sticker draws on top of which is just array order -
+  // both the editable layer here and the read-only Utils.renderProfileEffects
+  // append stickers to the DOM in array order with no z-index, so later in
+  // the array = rendered later = visually on top. Moving a sticker "forward"
+  // means moving it later in selectedEffects; "backward" means earlier.
+  // delta is +1 (forward, toward front/top) or -1 (backward, toward back).
+  function moveEffect(id, delta) {
+    const from = selectedEffects.findIndex((x) => x.id === id);
+    if (from === -1) return;
+    const to = from + delta;
+    if (to < 0 || to >= selectedEffects.length) return;
+    const [fx] = selectedEffects.splice(from, 1);
+    selectedEffects.splice(to, 0, fx);
+    renderEffectsLayer();
+    renderEffectsList();
+  }
+
   // Thumbnail row under the "Card Effects" section - lets you find and
   // delete a sticker by its GIF even when it's small, tucked behind the
   // avatar/name, or otherwise awkward to click directly on the card.
   function renderEffectsList() {
     const list = $('#edit-profile-effect-list');
     list.innerHTML = '';
-    selectedEffects.forEach((fx) => {
+    selectedEffects.forEach((fx, index) => {
       const chip = document.createElement('div');
       chip.className = `profile-effect-chip${fx.id === selectedEffectId ? ' selected' : ''}`;
 
@@ -428,8 +445,38 @@ const Profile = (() => {
       });
       chip.appendChild(removeBtn);
 
-      // Clicking the thumbnail itself (not the X) just selects it on the
-      // card, so it's easy to find which sticker you're about to delete.
+      // Layer order controls: which GIF sits on top of which. Forward
+      // (toward the front/visually on top) and backward (toward the back/
+      // visually underneath) move the sticker later/earlier in
+      // selectedEffects - see moveEffect for why that controls stacking.
+      // Disabled (greyed, inert) at whichever end a sticker's already at.
+      const forwardBtn = document.createElement('button');
+      forwardBtn.type = 'button';
+      forwardBtn.className = 'profile-effect-chip-order profile-effect-chip-order--forward';
+      forwardBtn.title = 'Bring forward (on top of the next one)';
+      forwardBtn.textContent = '▲';
+      forwardBtn.disabled = index === selectedEffects.length - 1;
+      forwardBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        moveEffect(fx.id, 1);
+      });
+      chip.appendChild(forwardBtn);
+
+      const backwardBtn = document.createElement('button');
+      backwardBtn.type = 'button';
+      backwardBtn.className = 'profile-effect-chip-order profile-effect-chip-order--backward';
+      backwardBtn.title = 'Send backward (behind the previous one)';
+      backwardBtn.textContent = '▼';
+      backwardBtn.disabled = index === 0;
+      backwardBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        moveEffect(fx.id, -1);
+      });
+      chip.appendChild(backwardBtn);
+
+      // Clicking the thumbnail itself (not the X or order buttons) just
+      // selects it on the card, so it's easy to find which sticker you're
+      // about to delete or reorder.
       chip.addEventListener('click', () => {
         selectedEffectId = fx.id;
         renderEffectsLayer();
