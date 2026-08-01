@@ -161,6 +161,7 @@ const Friends = (() => {
     avatarBox.appendChild(avatarWithStatus(f));
     ring.appendChild(avatarBox);
     card.appendChild(ring);
+    Utils.applyCardTheming(card, ring, f);
 
     const body = document.createElement('div');
     body.className = 'profile-preview-body';

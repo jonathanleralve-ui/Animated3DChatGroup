@@ -288,7 +288,7 @@
 .action-option-title { color: var(--text-bright); font-weight: 600; font-size: 14px; }
 .action-option-desc { color: var(--text-muted); font-size: 12px; margin-top: 2px; }
 
-.color-swatch-list { display: flex; gap: 10px; margin-top: 6px; }
+.color-swatch-list { display: flex; gap: 10px; margin-top: 6px; flex-wrap: wrap; }
 .color-swatch {
   width: 32px;
   height: 32px;
@@ -299,6 +299,44 @@
 /* avatar color swatches removed from profile editor */
 .color-swatch:hover { border-color: var(--bg-lighter); }
 .color-swatch.selected { border-color: var(--text-bright); }
+
+/* Rainbow swatch (avatar border "Rainbow" style pick) - a static preview of
+   the same conic-gradient used by .avatar-border-rainbow::before. */
+.color-swatch.rainbow-swatch {
+  background: conic-gradient(from 0deg, #ff5e5e, #ffcf5e, #7cff5e, #5ecbff, #a15eff, #ff5ea1, #ff5e5e);
+}
+
+/* Style-picker button group: None / Solid / Glow / Rainbow for the avatar
+   border, and similar small toggle-groups elsewhere in the profile editor. */
+.style-btn-group { display: flex; gap: 8px; margin-top: 6px; flex-wrap: wrap; }
+.style-btn {
+  padding: 7px 14px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg-light);
+  color: var(--text-normal);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.style-btn:hover { background: var(--bg-lighter); }
+.style-btn.active { background: var(--blurple); border-color: var(--blurple); color: #fff; }
+
+/* Custom-color row: swatch presets plus a native color picker for a fully
+   custom hex value, used by the avatar border and card accent controls. */
+.custom-color-row { display: flex; align-items: center; gap: 12px; margin-top: 10px; }
+.custom-color-input {
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  background: none;
+}
+.custom-color-input::-webkit-color-swatch-wrapper { padding: 0; border-radius: 50%; }
+.custom-color-input::-webkit-color-swatch { border: 3px solid transparent; border-radius: 50%; }
+.custom-color-label { color: var(--text-muted); font-size: 12px; }
 
 /* Scrollbars */
 ::-webkit-scrollbar { width: 8px; }

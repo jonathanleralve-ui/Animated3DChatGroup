@@ -12,6 +12,9 @@ function randomColor() {
   return COLORS[Math.floor(Math.random() * COLORS.length)];
 }
 
+const AVATAR_BORDER_STYLES = ['none', 'solid', 'glow', 'rainbow'];
+const HEX_COLOR_RE = /^#[0-9a-fA-F]{6}$/;
+
 function publicUser(u) {
   return {
     id: u.id,
@@ -40,6 +43,9 @@ function publicUser(u) {
     bannerZoom: u.banner_zoom,
     bannerOffsetX: u.banner_offset_x,
     bannerOffsetY: u.banner_offset_y,
+    avatarBorderStyle: u.avatar_border_style,
+    avatarBorderColor: u.avatar_border_color,
+    profileAccentColor: u.profile_accent_color,
     status: u.status
   };
 }
@@ -128,7 +134,8 @@ router.patch('/me', auth, async (req, res) => {
       avatarModelBlinkShapeKeys,
       avatarModelMouthShapeKeys,
       avatarModelLookEnabled,
-      bannerUrl, bannerZoom, bannerOffsetX, bannerOffsetY
+      bannerUrl, bannerZoom, bannerOffsetX, bannerOffsetY,
+      avatarBorderStyle, avatarBorderColor, profileAccentColor
     } = req.body || {};
     const updates = [];
     const values = [];
@@ -324,6 +331,36 @@ router.patch('/me', auth, async (req, res) => {
       if (!Number.isFinite(y)) return res.status(400).json({ error: 'Invalid banner offset value' });
       updates.push(`banner_offset_y = $${idx++}`);
       values.push(Math.min(300, Math.max(-300, y)));
+    }
+
+    // Avatar decoration: a ring/glow/rainbow border drawn around the avatar,
+    // plus the color it uses (ignored client-side for 'rainbow' and 'none',
+    // but still just stored as-is - the rendering rules decide what to do
+    // with it). Free-form hex rather than the fixed COLORS palette, since
+    // this comes from a color picker input, not preset swatches.
+    if (avatarBorderStyle !== undefined) {
+      if (!AVATAR_BORDER_STYLES.includes(avatarBorderStyle)) {
+        return res.status(400).json({ error: 'Invalid avatar border style' });
+      }
+      updates.push(`avatar_border_style = $${idx++}`);
+      values.push(avatarBorderStyle);
+    }
+
+    if (avatarBorderColor !== undefined) {
+      if (avatarBorderColor !== null && !HEX_COLOR_RE.test(avatarBorderColor)) {
+        return res.status(400).json({ error: 'Invalid avatar border color' });
+      }
+      updates.push(`avatar_border_color = $${idx++}`);
+      values.push(avatarBorderColor || null);
+    }
+
+    // Tints the card background below the banner. Also free-form hex.
+    if (profileAccentColor !== undefined) {
+      if (profileAccentColor !== null && !HEX_COLOR_RE.test(profileAccentColor)) {
+        return res.status(400).json({ error: 'Invalid profile accent color' });
+      }
+      updates.push(`profile_accent_color = $${idx++}`);
+      values.push(profileAccentColor || null);
     }
 
     if (updates.length === 0) {

@@ -173,7 +173,7 @@
       <div class="profile-panel-inner profile-panel-inner--wide">
         <div class="profile-editor">
           <aside class="profile-editor-side">
-            <div class="profile-preview-card">
+            <div class="profile-preview-card" id="edit-profile-preview-card">
               <div class="profile-preview-banner" id="edit-profile-banner">
                 <div class="profile-banner-actions">
                   <input type="file" id="edit-profile-banner-file" accept="image/*" class="hidden" />
@@ -181,7 +181,7 @@
                   <button class="btn-icon-round profile-banner-btn hidden" id="edit-profile-banner-remove-btn" type="button" title="Remove banner">✕</button>
                 </div>
               </div>
-              <div class="profile-preview-avatar-ring">
+              <div class="profile-preview-avatar-ring" id="edit-profile-avatar-ring">
                 <div class="profile-photo-preview profile-preview-avatar" id="edit-profile-photo-preview"></div>
               </div>
               <div class="profile-preview-body">
@@ -216,6 +216,32 @@
 
                 <label>Name Color</label>
                 <div class="color-swatch-list" id="edit-profile-namecolor-list"></div>
+              </section>
+
+              <section class="profile-section">
+                <p class="profile-section-title">Avatar Border</p>
+                <p class="profile-panel-sub profile-section-sub">Decorate the ring around your avatar photo.</p>
+                <div class="style-btn-group" id="edit-profile-borderstyle-group">
+                  <button class="style-btn" type="button" data-style="none">None</button>
+                  <button class="style-btn" type="button" data-style="solid">Solid</button>
+                  <button class="style-btn" type="button" data-style="glow">Glow</button>
+                  <button class="style-btn" type="button" data-style="rainbow">Rainbow</button>
+                </div>
+                <div class="custom-color-row hidden" id="edit-profile-border-color-row">
+                  <div class="color-swatch-list" id="edit-profile-bordercolor-list"></div>
+                  <input type="color" id="edit-profile-bordercolor-custom" class="custom-color-input" title="Custom color" />
+                  <span class="custom-color-label">Custom</span>
+                </div>
+              </section>
+
+              <section class="profile-section">
+                <p class="profile-section-title">Card Accent Color</p>
+                <p class="profile-panel-sub profile-section-sub">Tints the card below your banner.</p>
+                <div class="custom-color-row">
+                  <div class="color-swatch-list" id="edit-profile-accentcolor-list"></div>
+                  <input type="color" id="edit-profile-accentcolor-custom" class="custom-color-input" title="Custom color" />
+                  <span class="custom-color-label">Custom</span>
+                </div>
               </section>
             </div>
 
@@ -686,9 +712,9 @@
 
 <div class="member-card-backdrop hidden" id="member-card-backdrop"></div>
 <div class="member-card-popover hidden" id="member-card-popover">
-  <div class="profile-preview-card">
+  <div class="profile-preview-card" id="member-card-preview-card">
     <div class="profile-preview-banner" id="member-card-banner"></div>
-    <div class="profile-preview-avatar-ring">
+    <div class="profile-preview-avatar-ring" id="member-card-avatar-ring">
       <div class="profile-photo-preview profile-preview-avatar" id="member-card-avatar"></div>
     </div>
     <div class="profile-preview-body">

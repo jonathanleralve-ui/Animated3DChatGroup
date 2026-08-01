@@ -45,6 +45,35 @@ const Utils = (() => {
     }
   }
 
+  // Applies a user's avatar border (ring/glow/rainbow) and card accent color
+  // to a profile-preview-card's ring + card elements. Shared by the edit-
+  // profile preview card, the group member-card popover, and friend cards
+  // so all three stay visually in sync - same idea as applyNameColor above.
+  function applyCardTheming(cardEl, ringEl, user) {
+    if (ringEl) {
+      ringEl.classList.remove('avatar-border-solid', 'avatar-border-glow', 'avatar-border-rainbow');
+      ringEl.style.removeProperty('--avatar-border-color');
+      const style = user && user.avatarBorderStyle;
+      const color = user && user.avatarBorderColor;
+      if (style === 'rainbow') {
+        ringEl.classList.add('avatar-border-rainbow');
+      } else if ((style === 'solid' || style === 'glow') && color && /^#[0-9a-fA-F]{6}$/.test(color)) {
+        ringEl.classList.add(style === 'glow' ? 'avatar-border-glow' : 'avatar-border-solid');
+        ringEl.style.setProperty('--avatar-border-color', color);
+      }
+    }
+    if (cardEl) {
+      const accent = user && user.profileAccentColor;
+      if (accent && /^#[0-9a-fA-F]{6}$/.test(accent)) {
+        cardEl.classList.add('has-accent');
+        cardEl.style.setProperty('--profile-accent', accent);
+      } else {
+        cardEl.classList.remove('has-accent');
+        cardEl.style.removeProperty('--profile-accent');
+      }
+    }
+  }
+
   // Given a plain-text video URL, return an embeddable iframe URL, or null
   // if it isn't a recognized video link. Covers YouTube, Vimeo, Twitch
   // (VODs, clips, and live channels), Dailymotion, Streamable, Loom,
@@ -297,5 +326,5 @@ const Utils = (() => {
     handle.addEventListener('pointerdown', onPointerDown);
   }
 
-  return { $, $$, initials, escapeHtml, formatTime, avatarEl, avatarWithStatus, applyNameColor, linkifyText, getVideoEmbedUrl, isEmojiOnly, makeModalDraggable, makeFloatingDraggable };
+  return { $, $$, initials, escapeHtml, formatTime, avatarEl, avatarWithStatus, applyNameColor, applyCardTheming, linkifyText, getVideoEmbedUrl, isEmojiOnly, makeModalDraggable, makeFloatingDraggable };
 })();

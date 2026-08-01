@@ -356,6 +356,7 @@ const Groups = (() => {
     const avatarBox = $('#member-card-avatar');
     avatarBox.innerHTML = '';
     avatarBox.appendChild(avatarWithStatus(member));
+    Utils.applyCardTheming($('#member-card-preview-card'), $('#member-card-avatar-ring'), member);
 
     // Name / username
     const nameEl = $('#member-card-name');

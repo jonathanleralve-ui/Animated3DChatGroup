@@ -18,6 +18,9 @@ function publicUser(u) {
     bannerZoom: u.banner_zoom,
     bannerOffsetX: u.banner_offset_x,
     bannerOffsetY: u.banner_offset_y,
+    avatarBorderStyle: u.avatar_border_style,
+    avatarBorderColor: u.avatar_border_color,
+    profileAccentColor: u.profile_accent_color,
     status: u.status
   };
 }

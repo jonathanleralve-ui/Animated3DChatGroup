@@ -98,6 +98,24 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS banner_zoom DOUBLE PRECISION NOT NULL
 ALTER TABLE users ADD COLUMN IF NOT EXISTS banner_offset_x DOUBLE PRECISION NOT NULL DEFAULT 0;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS banner_offset_y DOUBLE PRECISION NOT NULL DEFAULT 0;
 
+-- Decorative ring drawn around the avatar on the profile preview card, the
+-- member-card popover, and friend cards. avatar_border_style is 'none'
+-- (default, plain bg-matching ring like before), 'solid' (ring painted in
+-- avatar_border_color), 'glow' (same color, but as a soft outer glow rather
+-- than a hard ring), or 'rainbow' (animated conic-gradient ring, ignores
+-- avatar_border_color). Kept as a free-form hex string (like banner/name
+-- color reuse a fixed palette, but this one also accepts a custom color
+-- from the <input type=color> picker) rather than restricted to the fixed
+-- swatch list, so people can match it to whatever they like.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_border_style TEXT NOT NULL DEFAULT 'none';
+ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_border_color TEXT;
+
+-- Tints the card background beneath the banner (profile preview card,
+-- member-card popover, friend cards) with a fade from this color down to
+-- the normal card background, similar in spirit to Discord's profile theme
+-- color. NULL means "no tint, just the plain card background".
+ALTER TABLE users ADD COLUMN IF NOT EXISTS profile_accent_color TEXT;
+
 CREATE TABLE IF NOT EXISTS friendships (
   id SERIAL PRIMARY KEY,
   requester_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,

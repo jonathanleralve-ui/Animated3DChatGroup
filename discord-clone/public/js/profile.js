@@ -76,6 +76,16 @@ const Profile = (() => {
 
   const NAME_COLORS = ['#5865F2', '#EB459E', '#57F287', '#FEE75C', '#ED4245', '#3BA55D', '#FAA61A'];
 
+  // Avatar border: a decorative ring around the avatar photo. 'none' is the
+  // plain default ring; 'solid'/'glow' use selectedAvatarBorderColor (a
+  // preset swatch or a fully custom hex value from the color picker);
+  // 'rainbow' is a fixed animated gradient and ignores the color entirely.
+  let selectedAvatarBorderStyle = 'none';
+  let selectedAvatarBorderColor = null;
+  // Card accent color: tints the profile card below the banner. NULL means
+  // the plain default card background.
+  let selectedAccentColor = null;
+
   // Whether the 3D preview has been mounted yet for this modal session.
   // Mounting is deferred until the "3D Voice Avatar" tab is actually opened
   // (see switchTab) so three.js sees a real, already-laid-out box instead of
@@ -90,6 +100,11 @@ const Profile = (() => {
     const name = $('#edit-profile-displayname').value.trim() || AppState.me?.displayName || 'Display Name';
     nameEl.textContent = name;
     nameEl.style.color = selectedNameColor || '';
+    Utils.applyCardTheming($('#edit-profile-preview-card'), $('#edit-profile-avatar-ring'), {
+      avatarBorderStyle: selectedAvatarBorderStyle,
+      avatarBorderColor: selectedAvatarBorderColor,
+      profileAccentColor: selectedAccentColor
+    });
   }
 
   function switchTab(tabName) {
@@ -154,6 +169,64 @@ const Profile = (() => {
       });
       list.appendChild(swatch);
     });
+  }
+
+  function renderBorderStyleGroup() {
+    $$('#edit-profile-borderstyle-group .style-btn').forEach((btn) => {
+      btn.classList.toggle('active', btn.dataset.style === selectedAvatarBorderStyle);
+    });
+    $('#edit-profile-border-color-row').classList.toggle(
+      'hidden',
+      selectedAvatarBorderStyle !== 'solid' && selectedAvatarBorderStyle !== 'glow'
+    );
+  }
+
+  function renderBorderColorSwatches() {
+    const list = $('#edit-profile-bordercolor-list');
+    list.innerHTML = '';
+    NAME_COLORS.forEach((color) => {
+      const swatch = document.createElement('div');
+      swatch.className = `color-swatch${selectedAvatarBorderColor === color ? ' selected' : ''}`;
+      swatch.style.background = color;
+      swatch.title = color;
+      swatch.addEventListener('click', () => {
+        selectedAvatarBorderColor = color;
+        renderBorderColorSwatches();
+        renderPreviewCard();
+      });
+      list.appendChild(swatch);
+    });
+    $('#edit-profile-bordercolor-custom').value = selectedAvatarBorderColor || '#5865F2';
+  }
+
+  function renderAccentColorSwatches() {
+    const list = $('#edit-profile-accentcolor-list');
+    list.innerHTML = '';
+
+    const defaultSwatch = document.createElement('div');
+    defaultSwatch.className = `color-swatch${selectedAccentColor ? '' : ' selected'}`;
+    defaultSwatch.style.background = 'var(--bg-lighter)';
+    defaultSwatch.title = 'Default';
+    defaultSwatch.addEventListener('click', () => {
+      selectedAccentColor = null;
+      renderAccentColorSwatches();
+      renderPreviewCard();
+    });
+    list.appendChild(defaultSwatch);
+
+    NAME_COLORS.forEach((color) => {
+      const swatch = document.createElement('div');
+      swatch.className = `color-swatch${selectedAccentColor === color ? ' selected' : ''}`;
+      swatch.style.background = color;
+      swatch.title = color;
+      swatch.addEventListener('click', () => {
+        selectedAccentColor = color;
+        renderAccentColorSwatches();
+        renderPreviewCard();
+      });
+      list.appendChild(swatch);
+    });
+    $('#edit-profile-accentcolor-custom').value = selectedAccentColor || '#5865F2';
   }
 
   function renderModelSection() {
@@ -711,9 +784,15 @@ const Profile = (() => {
     selectedBannerZoom = AppState.me.bannerZoom ?? 1.4;
     selectedBannerOffsetX = AppState.me.bannerOffsetX ?? 0;
     selectedBannerOffsetY = AppState.me.bannerOffsetY ?? 0;
+    selectedAvatarBorderStyle = AppState.me.avatarBorderStyle || 'none';
+    selectedAvatarBorderColor = AppState.me.avatarBorderColor || null;
+    selectedAccentColor = AppState.me.profileAccentColor || null;
     renderPhotoPreview();
     renderBannerPreview();
     renderNameColorSwatches();
+    renderBorderStyleGroup();
+    renderBorderColorSwatches();
+    renderAccentColorSwatches();
     renderModelSection();
     renderPreviewCard();
     modelPreviewMounted = false;
@@ -766,7 +845,9 @@ const Profile = (() => {
         avatarModelBlinkShapeKeys: selectedBlinkShapeKeys,
         avatarModelMouthShapeKeys: selectedMouthShapeKeys,
         avatarModelLookEnabled: selectedLookEnabled,
-        bannerUrl, bannerZoom: selectedBannerZoom, bannerOffsetX: selectedBannerOffsetX, bannerOffsetY: selectedBannerOffsetY
+        bannerUrl, bannerZoom: selectedBannerZoom, bannerOffsetX: selectedBannerOffsetX, bannerOffsetY: selectedBannerOffsetY,
+        avatarBorderStyle: selectedAvatarBorderStyle, avatarBorderColor: selectedAvatarBorderColor,
+        profileAccentColor: selectedAccentColor
       })
         .then((data) => {
           Object.assign(AppState.me, data.user);
@@ -858,6 +939,28 @@ const Profile = (() => {
       };
       reader.readAsDataURL(file);
       e.target.value = '';
+    });
+
+    $$('#edit-profile-borderstyle-group .style-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        selectedAvatarBorderStyle = btn.dataset.style;
+        if ((selectedAvatarBorderStyle === 'solid' || selectedAvatarBorderStyle === 'glow') && !selectedAvatarBorderColor) {
+          selectedAvatarBorderColor = NAME_COLORS[0];
+        }
+        renderBorderStyleGroup();
+        renderBorderColorSwatches();
+        renderPreviewCard();
+      });
+    });
+    $('#edit-profile-bordercolor-custom').addEventListener('input', (e) => {
+      selectedAvatarBorderColor = e.target.value;
+      renderBorderColorSwatches();
+      renderPreviewCard();
+    });
+    $('#edit-profile-accentcolor-custom').addEventListener('input', (e) => {
+      selectedAccentColor = e.target.value;
+      renderAccentColorSwatches();
+      renderPreviewCard();
     });
 
     $('#edit-profile-displayname').addEventListener('keydown', (e) => {
