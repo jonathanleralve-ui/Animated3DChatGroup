@@ -269,7 +269,7 @@ const Profile = (() => {
       el.style.width = `${size}px`;
       el.style.height = `${size}px`;
       el.style.left = `calc(50% + ${fx.x}px)`;
-      el.style.top = `calc(50% + ${fx.y}px)`;
+      el.style.top = `${Utils.EFFECT_ANCHOR_Y + fx.y}px`;
       el.style.setProperty('--fx-rotation', `${fx.rotation || 0}deg`);
 
       const img = document.createElement('img');
@@ -327,7 +327,7 @@ const Profile = (() => {
         fx.x = Math.min(160, Math.max(-160, effectDragState.startFxX + dx));
         fx.y = Math.min(160, Math.max(-160, effectDragState.startFxY + dy));
         el.style.left = `calc(50% + ${fx.x}px)`;
-        el.style.top = `calc(50% + ${fx.y}px)`;
+        el.style.top = `${Utils.EFFECT_ANCHOR_Y + fx.y}px`;
       });
       const endDrag = (e) => {
         if (!effectDragState || effectDragState.id !== fx.id) return;

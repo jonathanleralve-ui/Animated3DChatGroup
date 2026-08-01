@@ -45,6 +45,21 @@ const Utils = (() => {
   // size everywhere it's shown.
   const EFFECT_BASE_SIZE = 56;
 
+  // Vertical anchor (px from the top of the card) that a sticker's stored
+  // y-offset is measured from. This MUST equal .profile-preview-banner's
+  // height in profile.css: with the avatar-ring's -44px top margin (half
+  // its own 88px height) pulling it up over the banner, the ring's vertical
+  // center always lands exactly at the banner's height, in every card
+  // variant, regardless of how much text/buttons follow in the body below.
+  // Anchoring here (rather than 50% of the card's total height, which used
+  // to be the reference) is what keeps a sticker positioned "by the avatar"
+  // in the editor - a tall card, full of upload buttons and hints - from
+  // drifting above/outside the much shorter member-popover or friend-card
+  // versions of the same card, which only show the name and a line of text.
+  // Horizontal position is still fine as 50% of width, since every card
+  // variant is pinned to the same fixed 260px width (see .profile-preview-wrap).
+  const EFFECT_ANCHOR_Y = 76;
+
   // Renders a user's uploaded GIF "profile effects" (wings/fire/sparkles/
   // etc.) into `layerEl` as plain, non-interactive positioned stickers -
   // used by the member-card popover and friend cards. The editable version
@@ -61,7 +76,7 @@ const Utils = (() => {
       el.style.width = `${size}px`;
       el.style.height = `${size}px`;
       el.style.left = `calc(50% + ${fx.x || 0}px)`;
-      el.style.top = `calc(50% + ${fx.y || 0}px)`;
+      el.style.top = `${EFFECT_ANCHOR_Y + (fx.y || 0)}px`;
       el.style.setProperty('--fx-rotation', `${fx.rotation || 0}deg`);
       const img = document.createElement('img');
       img.src = fx.url;
@@ -359,5 +374,5 @@ const Utils = (() => {
     handle.addEventListener('pointerdown', onPointerDown);
   }
 
-  return { $, $$, initials, escapeHtml, formatTime, avatarEl, avatarWithStatus, applyNameColor, applyCardTheming, EFFECT_BASE_SIZE, renderProfileEffects, linkifyText, getVideoEmbedUrl, isEmojiOnly, makeModalDraggable, makeFloatingDraggable };
+  return { $, $$, initials, escapeHtml, formatTime, avatarEl, avatarWithStatus, applyNameColor, applyCardTheming, EFFECT_BASE_SIZE, EFFECT_ANCHOR_Y, renderProfileEffects, linkifyText, getVideoEmbedUrl, isEmojiOnly, makeModalDraggable, makeFloatingDraggable };
 })();
