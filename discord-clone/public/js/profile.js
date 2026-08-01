@@ -374,7 +374,7 @@ const Profile = (() => {
       resizeHandle.addEventListener('pointermove', (e) => {
         if (!effectResizeState || effectResizeState.id !== fx.id) return;
         const dist = Math.hypot(e.clientX - effectResizeState.centerX, e.clientY - effectResizeState.centerY);
-        fx.scale = Math.min(2.5, Math.max(0.3, effectResizeState.startScale * (dist / effectResizeState.startDist)));
+        fx.scale = Math.min(4, Math.max(0.3, effectResizeState.startScale * (dist / effectResizeState.startDist)));
         const s = Utils.EFFECT_BASE_SIZE * fx.scale;
         el.style.width = `${s}px`;
         el.style.height = `${s}px`;
@@ -385,7 +385,7 @@ const Profile = (() => {
 
       el.addEventListener('wheel', (e) => {
         e.preventDefault();
-        fx.scale = Math.min(2.5, Math.max(0.3, (fx.scale || 1) - e.deltaY * 0.001));
+        fx.scale = Math.min(4, Math.max(0.3, (fx.scale || 1) - e.deltaY * 0.001));
         const s = Utils.EFFECT_BASE_SIZE * fx.scale;
         el.style.width = `${s}px`;
         el.style.height = `${s}px`;

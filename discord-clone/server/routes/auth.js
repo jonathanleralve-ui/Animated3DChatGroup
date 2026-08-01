@@ -401,7 +401,7 @@ router.patch('/me', auth, async (req, res) => {
           url: fx.url,
           x: Math.min(160, Math.max(-160, Number.isFinite(x) ? x : 0)),
           y: Math.min(160, Math.max(-160, Number.isFinite(y) ? y : 0)),
-          scale: Math.min(2.5, Math.max(0.3, Number.isFinite(scale) ? scale : 1)),
+          scale: Math.min(4, Math.max(0.3, Number.isFinite(scale) ? scale : 1)),
           // Wrapped into [0, 360) rather than clamped, since rotation is
           // circular - a dragged-past-360 value is still a perfectly valid
           // angle, not an out-of-range one.
