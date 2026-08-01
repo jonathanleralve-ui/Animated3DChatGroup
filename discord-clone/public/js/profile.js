@@ -285,9 +285,7 @@ const Profile = (() => {
       removeBtn.textContent = '✕';
       removeBtn.addEventListener('click', (e) => {
         e.stopPropagation();
-        selectedEffects = selectedEffects.filter((x) => x.id !== fx.id);
-        if (selectedEffectId === fx.id) selectedEffectId = null;
-        renderEffectsLayer();
+        removeEffect(fx.id);
       });
       el.appendChild(removeBtn);
 
@@ -316,6 +314,7 @@ const Profile = (() => {
         e.preventDefault();
         e.stopPropagation();
         selectedEffectId = fx.id;
+        renderEffectsList();
         effectDragState = { id: fx.id, startX: e.clientX, startY: e.clientY, startFxX: fx.x, startFxY: fx.y, moved: false };
         el.classList.add('dragging');
         el.setPointerCapture(e.pointerId);
@@ -342,6 +341,7 @@ const Profile = (() => {
         e.preventDefault();
         e.stopPropagation();
         selectedEffectId = fx.id;
+        renderEffectsList();
         const rect = el.getBoundingClientRect();
         const centerX = rect.left + rect.width / 2;
         const centerY = rect.top + rect.height / 2;
@@ -363,6 +363,7 @@ const Profile = (() => {
         e.preventDefault();
         e.stopPropagation();
         selectedEffectId = fx.id;
+        renderEffectsList();
         const rect = el.getBoundingClientRect();
         const centerX = rect.left + rect.width / 2;
         const centerY = rect.top + rect.height / 2;
@@ -394,6 +395,51 @@ const Profile = (() => {
     });
   }
 
+  function removeEffect(id) {
+    selectedEffects = selectedEffects.filter((x) => x.id !== id);
+    if (selectedEffectId === id) selectedEffectId = null;
+    renderEffectsLayer();
+    renderEffectsList();
+  }
+
+  // Thumbnail row under the "Card Effects" section - lets you find and
+  // delete a sticker by its GIF even when it's small, tucked behind the
+  // avatar/name, or otherwise awkward to click directly on the card.
+  function renderEffectsList() {
+    const list = $('#edit-profile-effect-list');
+    list.innerHTML = '';
+    selectedEffects.forEach((fx) => {
+      const chip = document.createElement('div');
+      chip.className = `profile-effect-chip${fx.id === selectedEffectId ? ' selected' : ''}`;
+
+      const thumb = document.createElement('img');
+      thumb.src = fx.url;
+      thumb.alt = '';
+      chip.appendChild(thumb);
+
+      const removeBtn = document.createElement('button');
+      removeBtn.type = 'button';
+      removeBtn.className = 'profile-effect-chip-remove';
+      removeBtn.title = 'Remove';
+      removeBtn.textContent = '✕';
+      removeBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        removeEffect(fx.id);
+      });
+      chip.appendChild(removeBtn);
+
+      // Clicking the thumbnail itself (not the X) just selects it on the
+      // card, so it's easy to find which sticker you're about to delete.
+      chip.addEventListener('click', () => {
+        selectedEffectId = fx.id;
+        renderEffectsLayer();
+        renderEffectsList();
+      });
+
+      list.appendChild(chip);
+    });
+  }
+
   function addEffectFiles(fileList) {
     const errorEl = $('#edit-profile-effect-error');
     errorEl.textContent = '';
@@ -421,6 +467,7 @@ const Profile = (() => {
           const pos = defaultEffectPosition(selectedEffects.length);
           selectedEffects.push({ id: tempId, url: data.url, x: pos.x, y: pos.y, scale: 1, rotation: 0 });
           renderEffectsLayer();
+          renderEffectsList();
         })
         .catch((err) => { errorEl.textContent = err.message; });
     });
@@ -994,6 +1041,7 @@ const Profile = (() => {
     renderBorderColorSwatches();
     renderAccentColorSwatches();
     renderEffectsLayer();
+    renderEffectsList();
     renderModelSection();
     renderPreviewCard();
     modelPreviewMounted = false;
@@ -1174,6 +1222,7 @@ const Profile = (() => {
       if (e.target.closest('.profile-effect-sticker')) return;
       selectedEffectId = null;
       renderEffectsLayer();
+      renderEffectsList();
     });
 
     $('#edit-profile-displayname').addEventListener('keydown', (e) => {
