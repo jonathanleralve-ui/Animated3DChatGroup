@@ -38,6 +38,7 @@ function randomColor() {
 const MAX_VOICE_TRIGGERS = 15;
 const MAX_TRIGGER_PHRASE_LEN = 30;
 const MAX_TRIGGER_EMOJI_LEN = 8;
+const MAX_TRIGGER_SOUND_URL_LEN = 300;
 
 function formatGroup(g) {
   return {
@@ -202,7 +203,11 @@ router.patch('/:groupId/voice-commands', async (req, res) => {
 
     // Phrase is lowercased/trimmed server-side since matching is
     // case-insensitive anyway - no point storing "Party" and "party" as if
-    // they differ.
+    // they differ. soundUrl is optional - the client uploads the clip via
+    // /api/upload first (same flow as avatars/banners/card-effect GIFs) and
+    // just sends back the resulting URL here; must point at our own
+    // uploads, same restriction as the live voice:reaction relay in
+    // sockets/voice.js.
     const cleanedTriggers = [];
     for (const t of voiceCommandTriggers) {
       const phrase = typeof t?.phrase === 'string' ? t.phrase.trim().toLowerCase() : '';
@@ -216,7 +221,17 @@ router.patch('/:groupId/voice-commands', async (req, res) => {
       if (emoji.length > MAX_TRIGGER_EMOJI_LEN) {
         return res.status(400).json({ error: 'Voice command emoji is too long' });
       }
-      cleanedTriggers.push({ phrase, emoji });
+      let soundUrl = null;
+      if (typeof t?.soundUrl === 'string' && t.soundUrl.trim()) {
+        soundUrl = t.soundUrl.trim();
+        if (!soundUrl.startsWith('/uploads/')) {
+          return res.status(400).json({ error: 'Invalid voice command sound' });
+        }
+        if (soundUrl.length > MAX_TRIGGER_SOUND_URL_LEN) {
+          return res.status(400).json({ error: 'Voice command sound URL is too long' });
+        }
+      }
+      cleanedTriggers.push({ phrase, emoji, soundUrl });
     }
 
     const updated = await db.query(

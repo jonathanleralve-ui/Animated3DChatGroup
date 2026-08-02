@@ -84,8 +84,8 @@ const VoiceChat = (() => {
     });
 
     // Someone else's voice command fired a reaction - show it over their tile.
-    socket.on('voice:reaction', ({ socketId, emoji }) => {
-      showReaction(socketId, emoji);
+    socket.on('voice:reaction', ({ socketId, emoji, soundUrl }) => {
+      showReaction(socketId, emoji, soundUrl);
     });
 
     startGazeBroadcast();
@@ -187,7 +187,7 @@ const VoiceChat = (() => {
     if (typeof VoiceSpeech !== 'undefined' && VoiceSpeech.supported()) {
       const group = (typeof AppState !== 'undefined' && AppState.groupsData) ? AppState.groupsData.find((g) => g.id === groupId) : null;
       VoiceSpeech.setTriggers(group && group.voiceCommandTriggers);
-      VoiceSpeech.start((emoji) => triggerReaction(emoji));
+      VoiceSpeech.start((emoji, phrase, soundUrl) => triggerReaction(emoji, soundUrl));
     }
 
     if (typeof Groups !== 'undefined') Groups.refreshChannelHighlight();
@@ -246,26 +246,44 @@ const VoiceChat = (() => {
     } catch (err) { /* audio not available - reaction still shows visually */ }
   }
 
+  // Plays a member-uploaded sound clip for a triggered voice command. Falls
+  // back to the little synth chime if playback fails for any reason (file
+  // missing, browser blocked autoplay, unsupported format, etc.) so a bad
+  // clip never leaves the reaction silent.
+  function playCustomSound(url) {
+    try {
+      const audioEl = new Audio(url);
+      audioEl.volume = 0.6;
+      audioEl.play().catch(() => playReactionSound());
+    } catch (err) {
+      playReactionSound();
+    }
+  }
+
   // Floats an emoji up out of a participant's avatar ring and fades it out.
   // key is 'self' or a peer socketId, same lookup used everywhere else here.
-  function showReaction(key, emoji) {
+  // soundUrl, if the trigger has one, plays instead of the default chime -
+  // every participant in the channel plays it locally on their own end
+  // (there's no shared audio bus for it), so it's not perfectly in sync but
+  // fires for everyone.
+  function showReaction(key, emoji, soundUrl) {
     const ring = document.querySelector(`.voice-tile[data-speaker="${CSS.escape(key)}"] .avatar-ring`);
     if (!ring) return;
     const el = document.createElement('div');
     el.className = 'voice-reaction-emoji';
     el.textContent = emoji;
     ring.appendChild(el);
-    playReactionSound();
+    if (soundUrl) playCustomSound(soundUrl); else playReactionSound();
     setTimeout(() => el.remove(), 1400);
   }
 
   // Called when our own voice command fires: show it locally right away
   // (no need to wait on a round trip to our own screen) and tell the server
   // to relay it to everyone else currently in the channel.
-  function triggerReaction(emoji) {
+  function triggerReaction(emoji, soundUrl) {
     if (!connectedChannelId) return;
-    showReaction('self', emoji);
-    socket.emit('voice:reaction', { channelId: connectedChannelId, emoji });
+    showReaction('self', emoji, soundUrl);
+    socket.emit('voice:reaction', { channelId: connectedChannelId, emoji, soundUrl });
   }
 
   function toggleMute() {

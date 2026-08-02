@@ -194,11 +194,15 @@ function registerVoiceHandlers(io, socket, db) {
   // Reaction burst (e.g. triggered by a voice command) - purely visual/audio,
   // same lightweight relay pattern as voice:gaze above. The sender shows it
   // locally on trigger; this just tells everyone else in the room.
-  socket.on('voice:reaction', ({ channelId, emoji }) => {
+  // soundUrl is optional (a member-uploaded clip for that trigger word) -
+  // only relayed if it actually points at our own uploads, so a tampered
+  // client can't make peers fetch/play an arbitrary external URL.
+  socket.on('voice:reaction', ({ channelId, emoji, soundUrl }) => {
     const cid = Number(channelId);
     if (cid !== socket.currentVoiceChannel) return;
     const clean = typeof emoji === 'string' ? emoji.slice(0, 8) : '🎉';
-    socket.to(`voice:${cid}`).emit('voice:reaction', { socketId: socket.id, emoji: clean });
+    const cleanSoundUrl = typeof soundUrl === 'string' && soundUrl.startsWith('/uploads/') ? soundUrl.slice(0, 300) : null;
+    socket.to(`voice:${cid}`).emit('voice:reaction', { socketId: socket.id, emoji: clean, soundUrl: cleanSoundUrl });
   });
 
   const VALID_TOOLS = new Set(['pen', 'eraser', 'line', 'rect', 'ellipse', 'text']);

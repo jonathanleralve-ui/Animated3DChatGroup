@@ -154,10 +154,12 @@ ALTER TABLE groups ADD COLUMN IF NOT EXISTS icon_url TEXT;
 
 -- Shared, group-wide voice-chat command words (see public/js/voice-speech.js):
 -- saying one of these while connected to any voice channel in this group
--- fires an emoji reaction over the speaker's tile. Stored as a JSON array of
--- { phrase, emoji } objects, editable by any member of the group (same
--- permission model as renaming the group) so everyone hears the same set -
--- count/length limits enforced server-side in routes/groups.js.
+-- fires an emoji reaction (and optionally plays a member-uploaded sound
+-- clip) over the speaker's tile, for everyone in the call. Stored as a JSON
+-- array of { phrase, emoji, soundUrl } objects (soundUrl nullable),
+-- editable by any member of the group (same permission model as renaming
+-- the group) so everyone hears the same set - count/length limits enforced
+-- server-side in routes/groups.js.
 ALTER TABLE groups ADD COLUMN IF NOT EXISTS voice_command_triggers JSONB NOT NULL DEFAULT '[]'::jsonb;
 
 CREATE TABLE IF NOT EXISTS group_members (

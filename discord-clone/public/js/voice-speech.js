@@ -1,10 +1,11 @@
 // Wake-word style voice command detector for voice chat. Uses the browser's
 // built-in SpeechRecognition (Chrome/Edge; not available in Firefox and only
 // partially in Safari) to listen continuously while connected to a voice
-// channel, and calls back with an emoji when it hears one of the configured
-// trigger phrases. Note this is NOT local/offline - Chrome's implementation
-// streams audio to Google's servers to transcribe it. If the API isn't
-// supported, start() just no-ops so voice chat itself is unaffected.
+// channel, and calls back with an emoji (and an optional custom uploaded
+// sound URL) when it hears one of the configured trigger phrases. Note this
+// is NOT local/offline - Chrome's implementation streams audio to Google's
+// servers to transcribe it. If the API isn't supported, start() just no-ops
+// so voice chat itself is unaffected.
 const VoiceSpeech = (() => {
   const SpeechRecognitionImpl = window.SpeechRecognition || window.webkitSpeechRecognition;
 
@@ -20,7 +21,7 @@ const VoiceSpeech = (() => {
 
   let TRIGGERS = DEFAULT_TRIGGERS.slice();
 
-  // Swaps in a member's custom word list (from AppState.me.voiceCommandTriggers,
+  // Swaps in the current group's shared word list (from group.voiceCommandTriggers,
   // saved via the voice-command settings panel). Falls back to the defaults
   // for anything missing/invalid/empty, so recognition never ends up running
   // with zero triggers just because a field came back malformed.
@@ -31,7 +32,11 @@ const VoiceSpeech = (() => {
     }
     const cleaned = list
       .filter((t) => t && typeof t.phrase === 'string' && t.phrase.trim() && typeof t.emoji === 'string' && t.emoji.trim())
-      .map((t) => ({ phrase: t.phrase.trim().toLowerCase(), emoji: t.emoji.trim() }));
+      .map((t) => ({
+        phrase: t.phrase.trim().toLowerCase(),
+        emoji: t.emoji.trim(),
+        soundUrl: typeof t.soundUrl === 'string' && t.soundUrl.trim() ? t.soundUrl.trim() : null
+      }));
     TRIGGERS = cleaned.length ? cleaned : DEFAULT_TRIGGERS.slice();
   }
 
@@ -54,7 +59,7 @@ const VoiceSpeech = (() => {
     if (match) {
       lastTriggerAt = now;
       console.log('[VoiceSpeech] trigger matched:', match.phrase, '->', match.emoji);
-      if (onTrigger) onTrigger(match.emoji, match.phrase);
+      if (onTrigger) onTrigger(match.emoji, match.phrase, match.soundUrl);
     }
   }
 
