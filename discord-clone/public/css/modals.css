@@ -216,6 +216,48 @@
 
 .pixel-modal-body .empty-list-hint { color: #6b6558; }
 
+.voice-commands-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 16px 0;
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.voice-commands-row {
+  display: grid;
+  grid-template-columns: 1fr 64px 32px;
+  gap: 8px;
+  align-items: center;
+}
+
+.voice-commands-row input {
+  padding: 8px 10px;
+  font-size: 13px;
+}
+
+.voice-commands-emoji-input {
+  text-align: center;
+  font-size: 16px !important;
+}
+
+.voice-commands-row-remove {
+  width: 32px;
+  height: 32px;
+  border-radius: 0;
+  border: 3px solid #111214;
+  background: #ece6d6;
+  color: #111214;
+  font-family: 'Courier New', monospace;
+  font-size: 13px;
+  cursor: pointer;
+}
+.voice-commands-row-remove:hover { background: #f23f43; }
+
+#voice-commands-add { margin-top: 4px; }
+#voice-commands-modal .auth-error { margin-top: 10px; }
+
 .pixel-modal-body .friend-check-row { border-radius: 0; }
 .pixel-modal-body .friend-check-row:hover { background: #ded5bd; }
 

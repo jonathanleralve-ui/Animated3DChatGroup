@@ -31,6 +31,25 @@ function randomColor() {
   return COLORS[Math.floor(Math.random() * COLORS.length)];
 }
 
+// Voice command words are typed freely, so cap both the list size and each
+// field's length to keep the JSON blob small and stop anyone from pasting
+// something absurd into a trigger phrase. Shared across the whole group (see
+// public/js/voice-speech.js) rather than per-user.
+const MAX_VOICE_TRIGGERS = 15;
+const MAX_TRIGGER_PHRASE_LEN = 30;
+const MAX_TRIGGER_EMOJI_LEN = 8;
+
+function formatGroup(g) {
+  return {
+    id: g.id,
+    name: g.name,
+    iconColor: g.icon_color,
+    iconUrl: g.icon_url,
+    ownerId: g.owner_id,
+    voiceCommandTriggers: g.voice_command_triggers || []
+  };
+}
+
 // Every connected socket joins a `user:${id}` room for the lifetime of its
 // connection (see sockets/index.js), regardless of what groups/channels it
 // belongs to — so broadcasting a group-wide change is just "look up who's
@@ -56,13 +75,7 @@ router.get('/', async (req, res) => {
     );
 
     res.json({
-      groups: result.rows.map((g) => ({
-        id: g.id,
-        name: g.name,
-        iconColor: g.icon_color,
-        iconUrl: g.icon_url,
-        ownerId: g.owner_id
-      }))
+      groups: result.rows.map(formatGroup)
     });
   } catch (err) {
     console.error(err);
@@ -102,7 +115,7 @@ router.post('/', async (req, res) => {
 
     await client.query('COMMIT');
 
-    const formattedGroup = { id: group.id, name: group.name, iconColor: group.icon_color, iconUrl: group.icon_url, ownerId: group.owner_id };
+    const formattedGroup = formatGroup(group);
 
     // The creator sees this group locally right after their own request
     // resolves, but anyone else added at creation time (checked off in the
@@ -151,8 +164,73 @@ router.patch('/:groupId', async (req, res) => {
     const group = updated.rows[0];
     if (!group) return res.status(404).json({ error: 'Group not found' });
 
-    const formattedGroup = { id: group.id, name: group.name, iconColor: group.icon_color, iconUrl: group.icon_url, ownerId: group.owner_id };
+    const formattedGroup = formatGroup(group);
 
+    const io = req.app.get('io');
+    const memberIds = await memberUserIds(groupId);
+    io.to(memberRooms(memberIds)).emit('group:updated', { group: formattedGroup });
+
+    res.json({ group: formattedGroup });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Something went wrong, please try again' });
+  }
+});
+
+// Update the group's shared voice command words - any group member can edit
+// them (same permission model as renaming the group), and everyone
+// connected to a voice channel in this group hears the same trigger set
+// (see public/js/voice-speech.js).
+router.patch('/:groupId/voice-commands', async (req, res) => {
+  try {
+    const uid = req.user.id;
+    const groupId = Number(req.params.groupId);
+
+    const memberCheck = await db.query(
+      'SELECT 1 FROM group_members WHERE group_id = $1 AND user_id = $2',
+      [groupId, uid]
+    );
+    if (memberCheck.rows.length === 0) return res.status(403).json({ error: 'Only group members can edit voice commands' });
+
+    const { voiceCommandTriggers } = req.body || {};
+    if (!Array.isArray(voiceCommandTriggers)) {
+      return res.status(400).json({ error: 'Invalid voice command triggers' });
+    }
+    if (voiceCommandTriggers.length > MAX_VOICE_TRIGGERS) {
+      return res.status(400).json({ error: `You can only have up to ${MAX_VOICE_TRIGGERS} voice command words` });
+    }
+
+    // Phrase is lowercased/trimmed server-side since matching is
+    // case-insensitive anyway - no point storing "Party" and "party" as if
+    // they differ.
+    const cleanedTriggers = [];
+    for (const t of voiceCommandTriggers) {
+      const phrase = typeof t?.phrase === 'string' ? t.phrase.trim().toLowerCase() : '';
+      const emoji = typeof t?.emoji === 'string' ? t.emoji.trim() : '';
+      if (!phrase || !emoji) {
+        return res.status(400).json({ error: 'Each voice command needs both a word and an emoji' });
+      }
+      if (phrase.length > MAX_TRIGGER_PHRASE_LEN) {
+        return res.status(400).json({ error: `Voice command words must be ${MAX_TRIGGER_PHRASE_LEN} characters or fewer` });
+      }
+      if (emoji.length > MAX_TRIGGER_EMOJI_LEN) {
+        return res.status(400).json({ error: 'Voice command emoji is too long' });
+      }
+      cleanedTriggers.push({ phrase, emoji });
+    }
+
+    const updated = await db.query(
+      'UPDATE groups SET voice_command_triggers = $2::jsonb WHERE id = $1 RETURNING *',
+      [groupId, JSON.stringify(cleanedTriggers)]
+    );
+    const group = updated.rows[0];
+    if (!group) return res.status(404).json({ error: 'Group not found' });
+
+    const formattedGroup = formatGroup(group);
+
+    // Broadcast so every member's client (including any currently connected
+    // to a voice channel in this group) picks up the new trigger set live -
+    // handled client-side in groups.js's group:updated listener.
     const io = req.app.get('io');
     const memberIds = await memberUserIds(groupId);
     io.to(memberRooms(memberIds)).emit('group:updated', { group: formattedGroup });
@@ -394,7 +472,7 @@ router.post('/:groupId/join-requests/:requestId/accept', async (req, res) => {
     // The requester isn't in the channel room yet, so notify them directly
     // so their client can refresh its group list and open the new group.
     io.to(`user:${request.user_id}`).emit('group:joined', {
-      group: { id: group.id, name: group.name, iconColor: group.icon_color, iconUrl: group.icon_url, ownerId: group.owner_id }
+      group: formatGroup(group)
     });
 
     // Everyone else with this group's member sidebar open should see the
@@ -642,7 +720,7 @@ router.post('/:groupId/invites/:inviteId/accept', async (req, res) => {
     // The invitee isn't in the group's rooms yet, so tell their client
     // directly to refresh its group list and hop into the new group.
     io.to(`user:${uid}`).emit('group:joined', {
-      group: { id: group.id, name: group.name, iconColor: group.icon_color, iconUrl: group.icon_url, ownerId: group.owner_id }
+      group: formatGroup(group)
     });
 
     res.json({ ok: true });
@@ -712,7 +790,7 @@ router.post('/:groupId/members', async (req, res) => {
     const groupResult = await db.query('SELECT * FROM groups WHERE id = $1', [groupId]);
     const group = groupResult.rows[0];
     io.to(`user:${target.id}`).emit('group:added', {
-      group: { id: group.id, name: group.name, iconColor: group.icon_color, iconUrl: group.icon_url, ownerId: group.owner_id }
+      group: formatGroup(group)
     });
 
     res.status(201).json({ ok: true });

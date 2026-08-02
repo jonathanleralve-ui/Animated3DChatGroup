@@ -126,6 +126,13 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS profile_accent_color TEXT;
 -- ranges are enforced server-side in routes/auth.js (MAX_PROFILE_EFFECTS).
 ALTER TABLE users ADD COLUMN IF NOT EXISTS profile_effects JSONB NOT NULL DEFAULT '[]'::jsonb;
 
+-- Deprecated: this used to hold each user's personal voice-chat command
+-- words. That's now a shared, group-wide list instead (see
+-- groups.voice_command_triggers below) so the whole group hears the same
+-- trigger set - the client no longer reads or writes this column. Left in
+-- place rather than dropped so existing data isn't destroyed.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS voice_command_triggers JSONB NOT NULL DEFAULT '[]'::jsonb;
+
 CREATE TABLE IF NOT EXISTS friendships (
   id SERIAL PRIMARY KEY,
   requester_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -144,6 +151,14 @@ CREATE TABLE IF NOT EXISTS groups (
 );
 
 ALTER TABLE groups ADD COLUMN IF NOT EXISTS icon_url TEXT;
+
+-- Shared, group-wide voice-chat command words (see public/js/voice-speech.js):
+-- saying one of these while connected to any voice channel in this group
+-- fires an emoji reaction over the speaker's tile. Stored as a JSON array of
+-- { phrase, emoji } objects, editable by any member of the group (same
+-- permission model as renaming the group) so everyone hears the same set -
+-- count/length limits enforced server-side in routes/groups.js.
+ALTER TABLE groups ADD COLUMN IF NOT EXISTS voice_command_triggers JSONB NOT NULL DEFAULT '[]'::jsonb;
 
 CREATE TABLE IF NOT EXISTS group_members (
   id SERIAL PRIMARY KEY,

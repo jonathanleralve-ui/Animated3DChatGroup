@@ -8,16 +8,32 @@
 const VoiceSpeech = (() => {
   const SpeechRecognitionImpl = window.SpeechRecognition || window.webkitSpeechRecognition;
 
-  // Trigger phrase -> emoji fired as a voice-chat reaction. Matching is a
-  // case-insensitive substring check against what was heard, so saying
-  // "let's party tonight" still matches the "party" trigger. Edit freely.
-  const TRIGGERS = [
+  // Fallback list used until the signed-in user has saved their own words
+  // (or if they clear their list back to empty) - see setTriggers() below.
+  const DEFAULT_TRIGGERS = [
     { phrase: 'party', emoji: '🎉' },
     { phrase: 'gg', emoji: '🏆' },
     { phrase: 'laugh', emoji: '😂' },
     { phrase: 'sad', emoji: '😢' },
     { phrase: 'wow', emoji: '😮' }
   ];
+
+  let TRIGGERS = DEFAULT_TRIGGERS.slice();
+
+  // Swaps in a member's custom word list (from AppState.me.voiceCommandTriggers,
+  // saved via the voice-command settings panel). Falls back to the defaults
+  // for anything missing/invalid/empty, so recognition never ends up running
+  // with zero triggers just because a field came back malformed.
+  function setTriggers(list) {
+    if (!Array.isArray(list) || list.length === 0) {
+      TRIGGERS = DEFAULT_TRIGGERS.slice();
+      return;
+    }
+    const cleaned = list
+      .filter((t) => t && typeof t.phrase === 'string' && t.phrase.trim() && typeof t.emoji === 'string' && t.emoji.trim())
+      .map((t) => ({ phrase: t.phrase.trim().toLowerCase(), emoji: t.emoji.trim() }));
+    TRIGGERS = cleaned.length ? cleaned : DEFAULT_TRIGGERS.slice();
+  }
 
   const COOLDOWN_MS = 1500; // don't refire on the same breath/echoed word
 
@@ -98,5 +114,5 @@ const VoiceSpeech = (() => {
     }
   }
 
-  return { supported, start, stop, TRIGGERS };
+  return { supported, start, stop, setTriggers, getTriggers: () => TRIGGERS, DEFAULT_TRIGGERS };
 })();

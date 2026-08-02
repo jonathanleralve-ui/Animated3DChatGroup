@@ -699,6 +699,25 @@
     </div>
   </div>
 
+  <div class="modal pixel-modal pixel-modal--wide hidden" id="voice-commands-modal">
+    <div class="pixel-modal-titlebar">
+      <span class="pixel-modal-title">VOICE-COMMANDS.EXE</span>
+      <span class="pixel-modal-titlebar-lines"></span>
+      <button class="pixel-modal-close" id="voice-commands-close" aria-label="Close">&times;</button>
+    </div>
+    <div class="pixel-modal-body">
+      <h2>VOICE COMMAND WORDS</h2>
+      <p>Shared with everyone in this group. Say one of these while connected to a voice channel here and it'll fire the matching emoji reaction over the speaker's avatar. Any member can edit the list. Detection runs in Chrome/Edge only.</p>
+      <div id="voice-commands-list" class="voice-commands-list"></div>
+      <button class="pixel-btn pixel-btn-secondary" id="voice-commands-add" type="button">+ ADD WORD</button>
+      <div class="auth-error" id="voice-commands-error"></div>
+      <div class="modal-actions">
+        <button class="pixel-btn pixel-btn-secondary" id="voice-commands-cancel">CANCEL</button>
+        <button class="pixel-btn pixel-btn-primary" id="voice-commands-save">SAVE</button>
+      </div>
+    </div>
+  </div>
+
   <div class="modal hidden" id="delete-channel-modal">
     <h2>Delete Channel</h2>
     <p id="delete-channel-message"></p>
@@ -761,6 +780,7 @@
 <script src="/js/api.js"></script>
 <script src="/js/voice-speech.js"></script>
 <script src="/js/voice.js"></script>
+<script src="/js/voice-command-settings.js"></script>
 <script src="/js/voice-draw.js"></script>
 <script src="/js/emoji.js"></script>
 <script src="/js/chat.js"></script>

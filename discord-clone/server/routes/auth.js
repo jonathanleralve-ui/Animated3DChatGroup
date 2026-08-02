@@ -18,6 +18,9 @@ const HEX_COLOR_RE = /^#[0-9a-fA-F]{6}$/;
 // Cap on how many GIF stickers a card can carry - keeps the JSON blob and
 // the card itself from growing unbounded.
 const MAX_PROFILE_EFFECTS = 8;
+// Voice command words used to be a per-user field here; they're now a
+// shared, group-wide list handled in routes/groups.js instead (see
+// MAX_VOICE_TRIGGERS etc. there).
 
 function publicUser(u) {
   return {

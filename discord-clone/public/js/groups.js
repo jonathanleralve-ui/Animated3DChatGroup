@@ -844,8 +844,9 @@ const Groups = (() => {
     return refresh();
   }
 
-  // Another member renamed the group or changed its icon — update the rail
-  // and, if we're currently looking at this group, the sidebar header too.
+  // Another member renamed the group, changed its icon, or edited the
+  // shared voice command words — update the rail and, if we're currently
+  // looking at this group, the sidebar header too.
   function handleGroupUpdated(group) {
     const idx = AppState.groupsData.findIndex((g) => g.id === group.id);
     if (idx !== -1) {
@@ -854,6 +855,13 @@ const Groups = (() => {
     }
     if (AppState.activeGroup && AppState.activeGroup.id === group.id) {
       AppState.activeGroup = group;
+    }
+    // If we're actively listening for voice commands in this group's call,
+    // swap in the new trigger set immediately rather than waiting for the
+    // next join.
+    if (typeof VoiceChat !== 'undefined' && VoiceChat.getConnectedGroupId() === group.id
+        && typeof VoiceSpeech !== 'undefined') {
+      VoiceSpeech.setTriggers(group.voiceCommandTriggers);
     }
   }
 

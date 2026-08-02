@@ -65,6 +65,7 @@ const App = (() => {
     Chat.initUI();
     Profile.initUI();
     VoiceChat.initResizeHandle();
+    VoiceCommandSettings.initUI();
     Auth.tryResume();
   }
 

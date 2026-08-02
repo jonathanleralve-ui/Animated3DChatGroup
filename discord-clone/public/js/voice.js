@@ -151,6 +151,13 @@ const VoiceChat = (() => {
     return connectedChannelId && connectedGroupId === groupId;
   }
 
+  // Group id for whatever voice channel we're currently connected to (or
+  // null if none) - used by voice-command-settings.js to know which
+  // group's shared trigger list to edit.
+  function getConnectedGroupId() {
+    return connectedChannelId ? connectedGroupId : null;
+  }
+
   async function joinChannel(channelId, channelName, groupId) {
     if (connectedChannelId === channelId) return;
     if (connectedChannelId) await leaveCurrent();
@@ -178,6 +185,8 @@ const VoiceChat = (() => {
     if (localMicStream) startSpeakingDetection('self', localMicStream);
     if (typeof VoiceDraw !== 'undefined') VoiceDraw.setActiveChannel(channelId);
     if (typeof VoiceSpeech !== 'undefined' && VoiceSpeech.supported()) {
+      const group = (typeof AppState !== 'undefined' && AppState.groupsData) ? AppState.groupsData.find((g) => g.id === groupId) : null;
+      VoiceSpeech.setTriggers(group && group.voiceCommandTriggers);
       VoiceSpeech.start((emoji) => triggerReaction(emoji));
     }
 
@@ -1160,6 +1169,7 @@ const VoiceChat = (() => {
     refreshPanelForGroup,
     isConnectedTo,
     isConnectedToGroup,
+    getConnectedGroupId,
     initResizeHandle,
     refreshSelfTile,
     triggerReaction
