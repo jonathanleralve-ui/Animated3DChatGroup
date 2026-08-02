@@ -2,9 +2,10 @@
 // ⚙️ button in the voice call bar). Shared across every member of the
 // group currently connected to voice - not personal to whoever opens the
 // panel - so anyone can add/edit/remove words (and attach a sound clip that
-// plays for the whole channel) and everyone in the call hears the same set.
-// Each row is a { phrase, emoji, soundUrl } object; edits are staged in
-// `rows` and only sent to the server on Save.
+// plays for the whole channel), and pick which language the recognizer
+// listens for, and everyone in the call hears the same set. Each row is a
+// { phrase, emoji, soundUrl } object; edits (plus the language dropdown)
+// are staged locally and only sent to the server on Save.
 const VoiceCommandSettings = (() => {
   const { $ } = Utils;
 
@@ -29,6 +30,7 @@ const VoiceCommandSettings = (() => {
       soundName: t.soundUrl ? soundNameFromUrl(t.soundUrl) : null,
       uploading: false
     }));
+    $('#voice-commands-language').value = (group && group.voiceCommandLanguage) || 'en-US';
     $('#voice-commands-error').textContent = '';
     renderRows();
     $('#modal-overlay').classList.remove('hidden');
@@ -228,7 +230,9 @@ const VoiceCommandSettings = (() => {
       }
     }
 
-    Api.groups.updateVoiceCommands(editingGroupId, cleaned)
+    const language = $('#voice-commands-language').value || 'en-US';
+
+    Api.groups.updateVoiceCommands(editingGroupId, cleaned, language)
       .then((data) => {
         // The group:updated broadcast (handled in groups.js) also patches
         // AppState.groupsData and re-applies the triggers if we're still in
@@ -238,6 +242,7 @@ const VoiceCommandSettings = (() => {
         if (idx !== -1) AppState.groupsData[idx] = data.group;
         if (typeof VoiceChat !== 'undefined' && VoiceChat.getConnectedGroupId() === data.group.id) {
           VoiceSpeech.setTriggers(data.group.voiceCommandTriggers);
+          VoiceSpeech.setLanguage(data.group.voiceCommandLanguage);
         }
         close();
       })

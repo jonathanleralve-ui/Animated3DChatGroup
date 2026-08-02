@@ -40,6 +40,13 @@ const MAX_TRIGGER_PHRASE_LEN = 30;
 const MAX_TRIGGER_EMOJI_LEN = 8;
 const MAX_TRIGGER_SOUND_URL_LEN = 300;
 
+// Languages the voice-command speech recognizer (public/js/voice-speech.js)
+// can listen for - BCP-47 tags understood by the Web Speech API. Kept to a
+// short curated list rather than every locale Chrome supports, so the
+// settings dropdown stays simple; add more here as needed.
+const SUPPORTED_VOICE_LANGUAGES = new Set(['en-US', 'es-ES']);
+const DEFAULT_VOICE_LANGUAGE = 'en-US';
+
 function formatGroup(g) {
   return {
     id: g.id,
@@ -47,7 +54,8 @@ function formatGroup(g) {
     iconColor: g.icon_color,
     iconUrl: g.icon_url,
     ownerId: g.owner_id,
-    voiceCommandTriggers: g.voice_command_triggers || []
+    voiceCommandTriggers: g.voice_command_triggers || [],
+    voiceCommandLanguage: g.voice_command_language || DEFAULT_VOICE_LANGUAGE
   };
 }
 
@@ -193,12 +201,18 @@ router.patch('/:groupId/voice-commands', async (req, res) => {
     );
     if (memberCheck.rows.length === 0) return res.status(403).json({ error: 'Only group members can edit voice commands' });
 
-    const { voiceCommandTriggers } = req.body || {};
+    const { voiceCommandTriggers, voiceCommandLanguage } = req.body || {};
     if (!Array.isArray(voiceCommandTriggers)) {
       return res.status(400).json({ error: 'Invalid voice command triggers' });
     }
     if (voiceCommandTriggers.length > MAX_VOICE_TRIGGERS) {
       return res.status(400).json({ error: `You can only have up to ${MAX_VOICE_TRIGGERS} voice command words` });
+    }
+    // Language is optional in the request (older clients / partial updates
+    // just send triggers) - default to English rather than rejecting.
+    const language = voiceCommandLanguage !== undefined ? voiceCommandLanguage : DEFAULT_VOICE_LANGUAGE;
+    if (typeof language !== 'string' || !SUPPORTED_VOICE_LANGUAGES.has(language)) {
+      return res.status(400).json({ error: 'Unsupported voice command language' });
     }
 
     // Phrase is lowercased/trimmed server-side since matching is
@@ -235,8 +249,8 @@ router.patch('/:groupId/voice-commands', async (req, res) => {
     }
 
     const updated = await db.query(
-      'UPDATE groups SET voice_command_triggers = $2::jsonb WHERE id = $1 RETURNING *',
-      [groupId, JSON.stringify(cleanedTriggers)]
+      'UPDATE groups SET voice_command_triggers = $2::jsonb, voice_command_language = $3 WHERE id = $1 RETURNING *',
+      [groupId, JSON.stringify(cleanedTriggers), language]
     );
     const group = updated.rows[0];
     if (!group) return res.status(404).json({ error: 'Group not found' });

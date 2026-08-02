@@ -20,6 +20,7 @@ const VoiceSpeech = (() => {
   ];
 
   let TRIGGERS = DEFAULT_TRIGGERS.slice();
+  let LANGUAGE = 'en-US';
 
   // Swaps in the current group's shared word list (from group.voiceCommandTriggers,
   // saved via the voice-command settings panel). Falls back to the defaults
@@ -38,6 +39,25 @@ const VoiceSpeech = (() => {
         soundUrl: typeof t.soundUrl === 'string' && t.soundUrl.trim() ? t.soundUrl.trim() : null
       }));
     TRIGGERS = cleaned.length ? cleaned : DEFAULT_TRIGGERS.slice();
+  }
+
+  // Sets which language the recognizer transcribes (BCP-47 tag, e.g.
+  // 'en-US' or 'es-ES') - a group-wide setting from group.voiceCommandLanguage,
+  // since the Web Speech API only listens in one language per session and
+  // can't auto-detect between them. If recognition is already running, it's
+  // restarted so the new language takes effect immediately instead of
+  // waiting for the next join.
+  function setLanguage(lang) {
+    const next = (typeof lang === 'string' && lang.trim()) ? lang.trim() : 'en-US';
+    if (next === LANGUAGE) return;
+    LANGUAGE = next;
+    if (listening) {
+      if (recognition) {
+        recognition.onend = null;
+        try { recognition.stop(); } catch (err) { /* already stopped */ }
+      }
+      startRecognitionInstance();
+    }
   }
 
   const COOLDOWN_MS = 1500; // don't refire on the same breath/echoed word
@@ -75,7 +95,7 @@ const VoiceSpeech = (() => {
     recognition = new SpeechRecognitionImpl();
     recognition.continuous = true;
     recognition.interimResults = true;
-    recognition.lang = 'en-US';
+    recognition.lang = LANGUAGE;
 
     recognition.onstart = () => console.log('[VoiceSpeech] listening for trigger words:', TRIGGERS.map((t) => t.phrase).join(', '));
 
@@ -119,5 +139,5 @@ const VoiceSpeech = (() => {
     }
   }
 
-  return { supported, start, stop, setTriggers, getTriggers: () => TRIGGERS, DEFAULT_TRIGGERS };
+  return { supported, start, stop, setTriggers, setLanguage, getTriggers: () => TRIGGERS, DEFAULT_TRIGGERS };
 })();

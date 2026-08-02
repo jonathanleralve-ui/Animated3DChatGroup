@@ -708,6 +708,14 @@
     <div class="pixel-modal-body">
       <h2>VOICE COMMAND WORDS</h2>
       <p>Shared with everyone in this group. Say one of these while connected to a voice channel here and it'll fire the matching emoji reaction (plus a sound clip, if you attach one) for the whole channel. Any member can edit the list. Detection runs in Chrome/Edge only.</p>
+      <div class="voice-commands-language-row">
+        <label for="voice-commands-language">Listening language</label>
+        <select id="voice-commands-language">
+          <option value="en-US">English (US)</option>
+          <option value="es-ES">Español (España)</option>
+        </select>
+      </div>
+      <p class="voice-commands-language-hint">The recognizer only understands one language at a time, so type your trigger words in the language you pick here.</p>
       <div id="voice-commands-list" class="voice-commands-list"></div>
       <button class="pixel-btn pixel-btn-secondary" id="voice-commands-add" type="button">+ ADD WORD</button>
       <div class="auth-error" id="voice-commands-error"></div>

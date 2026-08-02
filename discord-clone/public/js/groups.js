@@ -857,11 +857,12 @@ const Groups = (() => {
       AppState.activeGroup = group;
     }
     // If we're actively listening for voice commands in this group's call,
-    // swap in the new trigger set immediately rather than waiting for the
-    // next join.
+    // swap in the new trigger set (and language) immediately rather than
+    // waiting for the next join.
     if (typeof VoiceChat !== 'undefined' && VoiceChat.getConnectedGroupId() === group.id
         && typeof VoiceSpeech !== 'undefined') {
       VoiceSpeech.setTriggers(group.voiceCommandTriggers);
+      VoiceSpeech.setLanguage(group.voiceCommandLanguage);
     }
   }
 

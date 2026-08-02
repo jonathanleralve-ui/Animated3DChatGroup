@@ -216,6 +216,33 @@
 
 .pixel-modal-body .empty-list-hint { color: #6b6558; }
 
+.voice-commands-language-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 14px 0 4px;
+}
+.voice-commands-language-row label {
+  font-family: 'Courier New', monospace;
+  font-size: 12px;
+  font-weight: bold;
+}
+.voice-commands-language-row select {
+  padding: 6px 8px;
+  border-radius: 0;
+  border: 3px solid #111214;
+  background: #fff9ea;
+  color: #111214;
+  font-family: 'Courier New', monospace;
+  font-size: 13px;
+  cursor: pointer;
+}
+.voice-commands-language-hint {
+  font-size: 11px;
+  color: #6b6558;
+  margin: 4px 0 0;
+}
+
 .voice-commands-list {
   display: flex;
   flex-direction: column;

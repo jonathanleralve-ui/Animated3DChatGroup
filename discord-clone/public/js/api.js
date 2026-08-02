@@ -58,8 +58,8 @@ const Api = (() => {
       request(`/groups/${groupId}/invites/${inviteId}/decline`, { method: 'POST' }),
     rename: (groupId, name, iconUrl) =>
       request(`/groups/${groupId}`, { method: 'PATCH', body: JSON.stringify({ name, iconUrl }) }),
-    updateVoiceCommands: (groupId, triggers) =>
-      request(`/groups/${groupId}/voice-commands`, { method: 'PATCH', body: JSON.stringify({ voiceCommandTriggers: triggers }) }),
+    updateVoiceCommands: (groupId, triggers, language) =>
+      request(`/groups/${groupId}/voice-commands`, { method: 'PATCH', body: JSON.stringify({ voiceCommandTriggers: triggers, voiceCommandLanguage: language }) }),
     leave: (groupId) => request(`/groups/${groupId}/members/me`, { method: 'DELETE' })
   };
 

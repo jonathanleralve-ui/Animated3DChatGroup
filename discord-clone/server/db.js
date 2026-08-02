@@ -162,6 +162,14 @@ ALTER TABLE groups ADD COLUMN IF NOT EXISTS icon_url TEXT;
 -- server-side in routes/groups.js.
 ALTER TABLE groups ADD COLUMN IF NOT EXISTS voice_command_triggers JSONB NOT NULL DEFAULT '[]'::jsonb;
 
+-- Which language the browser's speech recognizer listens for when matching
+-- the trigger words above (BCP-47 tag, e.g. 'en-US' or 'es-ES'). The Web
+-- Speech API only transcribes in one language per session, so this is a
+-- group-wide setting rather than per-word - pick whichever language the
+-- group actually speaks its trigger words in. Validated against an
+-- allow-list server-side (see SUPPORTED_VOICE_LANGUAGES in routes/groups.js).
+ALTER TABLE groups ADD COLUMN IF NOT EXISTS voice_command_language TEXT NOT NULL DEFAULT 'en-US';
+
 CREATE TABLE IF NOT EXISTS group_members (
   id SERIAL PRIMARY KEY,
   group_id INTEGER NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
