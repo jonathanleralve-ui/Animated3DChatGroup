@@ -4,12 +4,13 @@
 // panel - so anyone can add/edit/remove words (and attach a sound clip that
 // plays for the whole channel), and pick which language the recognizer
 // listens for, and everyone in the call hears the same set. Each row is a
-// { phrase, emoji, soundUrl } object; edits (plus the language dropdown)
-// are staged locally and only sent to the server on Save.
+// { phrase, soundUrl } object - no icon, just the word and its sound; edits
+// (plus the language dropdown) are staged locally and only sent to the
+// server on Save.
 const VoiceCommandSettings = (() => {
   const { $ } = Utils;
 
-  let rows = []; // staged edits: [{ phrase, emoji, soundUrl, soundName, uploading }]
+  let rows = []; // staged edits: [{ phrase, soundUrl, soundName, uploading }]
   let editingGroupId = null; // which group's shared list we're editing
 
   function currentGroup() {
@@ -25,7 +26,6 @@ const VoiceCommandSettings = (() => {
     const saved = (group && group.voiceCommandTriggers) || [];
     rows = (saved.length ? saved : VoiceSpeech.DEFAULT_TRIGGERS).map((t) => ({
       phrase: t.phrase,
-      emoji: t.emoji,
       soundUrl: t.soundUrl || null,
       soundName: t.soundUrl ? soundNameFromUrl(t.soundUrl) : null,
       uploading: false
@@ -62,83 +62,48 @@ const VoiceCommandSettings = (() => {
     rows.forEach((row, i) => {
       const itemEl = document.createElement('div');
       itemEl.className = 'voice-commands-item';
-
-      const rowEl = document.createElement('div');
-      rowEl.className = 'voice-commands-row';
-
-      const phraseInput = document.createElement('input');
-      phraseInput.type = 'text';
-      phraseInput.placeholder = 'word to say';
-      phraseInput.maxLength = 30;
-      phraseInput.value = row.phrase;
-      phraseInput.addEventListener('input', () => { rows[i].phrase = phraseInput.value; });
-
-      const emojiInput = document.createElement('input');
-      emojiInput.type = 'text';
-      emojiInput.placeholder = '🎉';
-      emojiInput.maxLength = 8;
-      emojiInput.className = 'voice-commands-emoji-input';
-      emojiInput.value = row.emoji;
-      emojiInput.addEventListener('input', () => { rows[i].emoji = emojiInput.value; });
-
-      const removeBtn = document.createElement('button');
-      removeBtn.type = 'button';
-      removeBtn.className = 'voice-commands-row-remove';
-      removeBtn.textContent = '✕';
-      removeBtn.title = 'Remove word';
-      removeBtn.addEventListener('click', () => {
-        rows.splice(i, 1);
-        renderRows();
-      });
-
-      rowEl.appendChild(phraseInput);
-      rowEl.appendChild(emojiInput);
-      rowEl.appendChild(removeBtn);
-      itemEl.appendChild(rowEl);
-      itemEl.appendChild(buildSoundRow(row, i));
+      itemEl.appendChild(buildRow(row, i));
       list.appendChild(itemEl);
     });
   }
 
-  // Sub-row under the phrase/emoji pair: lets a member attach (or clear) an
-  // uploaded sound clip that plays for the whole voice channel, in addition
-  // to the emoji, when this word is heard.
-  function buildSoundRow(row, i) {
-    const soundRow = document.createElement('div');
-    soundRow.className = 'voice-commands-sound-row';
+  // A single row: just the word to say and its sound clip, side by side -
+  // no icon, no extra label text.
+  function buildRow(row, i) {
+    const rowEl = document.createElement('div');
+    rowEl.className = 'voice-commands-row';
+
+    const phraseInput = document.createElement('input');
+    phraseInput.type = 'text';
+    phraseInput.placeholder = 'word to say';
+    phraseInput.maxLength = 30;
+    phraseInput.value = row.phrase;
+    phraseInput.addEventListener('input', () => { rows[i].phrase = phraseInput.value; });
+    rowEl.appendChild(phraseInput);
 
     const fileInput = document.createElement('input');
     fileInput.type = 'file';
     fileInput.accept = 'audio/*';
     fileInput.className = 'hidden';
-
-    const uploadBtn = document.createElement('button');
-    uploadBtn.type = 'button';
-    uploadBtn.className = 'voice-commands-sound-btn';
     fileInput.addEventListener('change', () => {
       const file = fileInput.files && fileInput.files[0];
       fileInput.value = '';
       if (file) uploadSound(file, i);
     });
-    uploadBtn.addEventListener('click', () => fileInput.click());
+    rowEl.appendChild(fileInput);
 
-    const statusEl = document.createElement('span');
-    statusEl.className = 'voice-commands-sound-status';
-
+    const uploadBtn = document.createElement('button');
+    uploadBtn.type = 'button';
+    uploadBtn.className = 'voice-commands-sound-btn';
+    uploadBtn.title = row.soundUrl ? 'Replace sound' : 'Add sound';
     if (row.uploading) {
-      uploadBtn.textContent = '⏳ Uploading…';
+      uploadBtn.textContent = '⏳';
       uploadBtn.disabled = true;
-    } else if (row.soundUrl) {
-      uploadBtn.textContent = '🔊 Replace Sound';
-      statusEl.textContent = row.soundName || 'Sound attached';
     } else {
-      uploadBtn.textContent = '🔊 Add Sound';
-      statusEl.textContent = 'Plays for the whole voice channel when heard';
+      uploadBtn.textContent = row.soundUrl ? '🔊' : '🔈';
     }
-
-    soundRow.appendChild(fileInput);
-    soundRow.appendChild(uploadBtn);
-    soundRow.appendChild(statusEl);
+    uploadBtn.addEventListener('click', () => fileInput.click());
+    rowEl.appendChild(uploadBtn);
 
     if (row.soundUrl && !row.uploading) {
       const playBtn = document.createElement('button');
@@ -149,6 +114,7 @@ const VoiceCommandSettings = (() => {
       playBtn.addEventListener('click', () => {
         try { new Audio(row.soundUrl).play(); } catch (err) { /* ignore preview failures */ }
       });
+      rowEl.appendChild(playBtn);
 
       const clearBtn = document.createElement('button');
       clearBtn.type = 'button';
@@ -160,12 +126,21 @@ const VoiceCommandSettings = (() => {
         rows[i].soundName = null;
         renderRows();
       });
-
-      soundRow.appendChild(playBtn);
-      soundRow.appendChild(clearBtn);
+      rowEl.appendChild(clearBtn);
     }
 
-    return soundRow;
+    const removeBtn = document.createElement('button');
+    removeBtn.type = 'button';
+    removeBtn.className = 'voice-commands-row-remove';
+    removeBtn.textContent = '✕';
+    removeBtn.title = 'Remove word';
+    removeBtn.addEventListener('click', () => {
+      rows.splice(i, 1);
+      renderRows();
+    });
+    rowEl.appendChild(removeBtn);
+
+    return rowEl;
   }
 
   function uploadSound(file, i) {
@@ -197,7 +172,7 @@ const VoiceCommandSettings = (() => {
       $('#voice-commands-error').textContent = 'You can only have up to 15 voice command words';
       return;
     }
-    rows.push({ phrase: '', emoji: '', soundUrl: null, soundName: null, uploading: false });
+    rows.push({ phrase: '', soundUrl: null, soundName: null, uploading: false });
     renderRows();
     // Focus the phrase input of the row just added, so typing can start immediately
     const list = $('#voice-commands-list');
@@ -220,12 +195,12 @@ const VoiceCommandSettings = (() => {
     }
 
     const cleaned = rows
-      .map((r) => ({ phrase: r.phrase.trim(), emoji: r.emoji.trim(), soundUrl: r.soundUrl || null }))
-      .filter((r) => r.phrase || r.emoji || r.soundUrl); // drop fully-blank rows silently
+      .map((r) => ({ phrase: r.phrase.trim(), soundUrl: r.soundUrl || null }))
+      .filter((r) => r.phrase || r.soundUrl); // drop fully-blank rows silently
 
     for (const r of cleaned) {
-      if (!r.phrase || !r.emoji) {
-        errorEl.textContent = 'Each word needs both text and an emoji';
+      if (!r.phrase) {
+        errorEl.textContent = 'Each row needs a word';
         return;
       }
     }

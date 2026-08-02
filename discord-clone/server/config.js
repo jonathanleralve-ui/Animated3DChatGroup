@@ -14,6 +14,13 @@ module.exports = {
   MODEL_UPLOAD_DIR: process.env.MODEL_UPLOAD_DIR || path.join(__dirname, 'uploads', 'models'),
   MAX_MODEL_ZIP_MB: Number(process.env.MAX_MODEL_ZIP_MB || 200),
 
+  // Used by the "play <song>" voice command (server/routes/youtube.js) to
+  // search YouTube for a video to play. Get one at
+  // https://console.cloud.google.com/apis/credentials after enabling the
+  // "YouTube Data API v3" on a project - the voice command silently no-ops
+  // (server returns 500) if this isn't set.
+  YOUTUBE_API_KEY: process.env.YOUTUBE_API_KEY || null,
+
   // Postgres connection. Either set DATABASE_URL directly, or the individual
   // PG* vars below (used by docker-compose out of the box).
   DATABASE_URL: process.env.DATABASE_URL || null,

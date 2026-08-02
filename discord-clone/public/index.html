@@ -134,6 +134,11 @@
       </div>
 
       <div class="voice-panel-top">
+        <div id="voice-now-playing" class="voice-now-playing hidden">
+          <span class="voice-now-playing-icon">🎵</span>
+          <span id="voice-now-playing-title" class="voice-now-playing-title"></span>
+          <button class="voice-now-playing-stop" id="voice-now-playing-stop" title="Stop">✕</button>
+        </div>
         <div id="voice-controls" class="voice-controls hidden">
           <button class="btn-icon-round" id="voice-share-btn" title="Share Screen">🖥️</button>
           <button class="btn-icon-round" id="voice-draw-btn" title="Draw">🎨</button>
@@ -142,6 +147,12 @@
           <button class="btn-icon-round" id="voice-settings-btn" title="Settings">⚙️</button>
         </div>
       </div>
+
+      <!-- Audio-only YouTube player for the "play <song>" voice command
+           (see voice-youtube.js) - kept off-screen rather than display:none,
+           since the IFrame API misbehaves on elements that are never
+           actually rendered. -->
+      <div id="voice-youtube-player" class="voice-youtube-player"></div>
 
       <div id="voice-resize-handle" class="voice-resize-handle" title="Drag to resize"></div>
     </div>
@@ -707,7 +718,7 @@
     </div>
     <div class="pixel-modal-body">
       <h2>VOICE COMMAND WORDS</h2>
-      <p>Shared with everyone in this group. Say one of these while connected to a voice channel here and it'll fire the matching emoji reaction (plus a sound clip, if you attach one) for the whole channel. Any member can edit the list. Detection runs in Chrome/Edge only.</p>
+      <p>Shared with everyone in this group. Say one of these while connected to a voice channel here and it'll play the attached sound clip for the whole channel. Any member can edit the list. Detection runs in Chrome/Edge only.</p>
       <div class="voice-commands-language-row">
         <label for="voice-commands-language">Listening language</label>
         <select id="voice-commands-language">
@@ -787,6 +798,7 @@
 <script src="/js/utils.js"></script>
 <script src="/js/api.js"></script>
 <script src="/js/voice-speech.js"></script>
+<script src="/js/voice-youtube.js"></script>
 <script src="/js/voice.js"></script>
 <script src="/js/voice-command-settings.js"></script>
 <script src="/js/voice-draw.js"></script>

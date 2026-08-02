@@ -84,9 +84,25 @@ const VoiceChat = (() => {
     });
 
     // Someone else's voice command fired a reaction - show it over their tile.
-    socket.on('voice:reaction', ({ socketId, emoji, soundUrl }) => {
-      showReaction(socketId, emoji, soundUrl);
+    socket.on('voice:reaction', ({ soundUrl }) => {
+      showReaction(soundUrl);
     });
+
+    // Someone else said "play <song>" - load the same video into our own
+    // hidden player too, so the whole channel hears it.
+    socket.on('voice:play-song', ({ videoId, title }) => {
+      if (typeof VoiceYoutube === 'undefined') return;
+      VoiceYoutube.play(videoId, title);
+    });
+
+    socket.on('voice:stop-song', () => {
+      if (typeof VoiceYoutube === 'undefined') return;
+      VoiceYoutube.stop();
+    });
+
+    if (typeof VoiceYoutube !== 'undefined') {
+      VoiceYoutube.setOnStateChange((status, info) => updateNowPlayingBar(status, info));
+    }
 
     startGazeBroadcast();
 
@@ -188,7 +204,7 @@ const VoiceChat = (() => {
       const group = (typeof AppState !== 'undefined' && AppState.groupsData) ? AppState.groupsData.find((g) => g.id === groupId) : null;
       VoiceSpeech.setTriggers(group && group.voiceCommandTriggers);
       VoiceSpeech.setLanguage(group && group.voiceCommandLanguage);
-      VoiceSpeech.start((emoji, phrase, soundUrl) => triggerReaction(emoji, soundUrl));
+      VoiceSpeech.start((phrase, soundUrl) => triggerReaction(soundUrl), (query) => playSongCommand(query));
     }
 
     if (typeof Groups !== 'undefined') Groups.refreshChannelHighlight();
@@ -206,6 +222,8 @@ const VoiceChat = (() => {
     disposeAvatar3D('self');
     if (typeof VoiceDraw !== 'undefined') VoiceDraw.setActiveChannel(null);
     if (typeof VoiceSpeech !== 'undefined') VoiceSpeech.stop();
+    if (typeof VoiceYoutube !== 'undefined') VoiceYoutube.stop();
+    updateNowPlayingBar('stopped', {});
 
     if (localMicStream) {
       localMicStream.getTracks().forEach((t) => t.stop());
@@ -261,30 +279,64 @@ const VoiceChat = (() => {
     }
   }
 
-  // Floats an emoji up out of a participant's avatar ring and fades it out.
-  // key is 'self' or a peer socketId, same lookup used everywhere else here.
-  // soundUrl, if the trigger has one, plays instead of the default chime -
-  // every participant in the channel plays it locally on their own end
-  // (there's no shared audio bus for it), so it's not perfectly in sync but
-  // fires for everyone.
-  function showReaction(key, emoji, soundUrl) {
-    const ring = document.querySelector(`.voice-tile[data-speaker="${CSS.escape(key)}"] .avatar-ring`);
-    if (!ring) return;
-    const el = document.createElement('div');
-    el.className = 'voice-reaction-emoji';
-    el.textContent = emoji;
-    ring.appendChild(el);
+  // No icon/popup - a voice command's only feedback is audio. soundUrl, if
+  // the trigger has one, plays instead of the default chime - every
+  // participant in the channel plays it locally on their own end (there's
+  // no shared audio bus for it), so it's not perfectly in sync but fires
+  // for everyone.
+  function showReaction(soundUrl) {
     if (soundUrl) playCustomSound(soundUrl); else playReactionSound();
-    setTimeout(() => el.remove(), 1400);
   }
 
-  // Called when our own voice command fires: show it locally right away
+  // Called when our own voice command fires: play it locally right away
   // (no need to wait on a round trip to our own screen) and tell the server
   // to relay it to everyone else currently in the channel.
-  function triggerReaction(emoji, soundUrl) {
+  function triggerReaction(soundUrl) {
     if (!connectedChannelId) return;
-    showReaction('self', emoji, soundUrl);
-    socket.emit('voice:reaction', { channelId: connectedChannelId, emoji, soundUrl });
+    showReaction(soundUrl);
+    socket.emit('voice:reaction', { channelId: connectedChannelId, soundUrl });
+  }
+
+  // Fired when our own "play <song>" voice command is heard. query is
+  // whatever raw text speech recognition captured after "play" - looked up
+  // as-is on YouTube server-side, no local cleanup needed.
+  function playSongCommand(query) {
+    if (!connectedChannelId || typeof VoiceYoutube === 'undefined') return;
+    updateNowPlayingBar('loading', { title: query });
+    Api.youtube.search(query)
+      .then((result) => {
+        if (!connectedChannelId) return; // left the call while the search was in flight
+        VoiceYoutube.play(result.videoId, result.title);
+        socket.emit('voice:play-song', { channelId: connectedChannelId, videoId: result.videoId, title: result.title });
+      })
+      .catch((err) => {
+        console.warn('[VoiceChat] YouTube search failed:', err.message);
+        updateNowPlayingBar('error', {});
+      });
+  }
+
+  function stopSong() {
+    if (typeof VoiceYoutube !== 'undefined') VoiceYoutube.stop();
+    if (connectedChannelId) socket.emit('voice:stop-song', { channelId: connectedChannelId });
+  }
+
+  // Reflects the current song (or lack of one) in the small bar above the
+  // voice controls. 'loading' shows the query while the YouTube search is
+  // in flight, 'playing' swaps in the confirmed title once it starts,
+  // 'stopped'/'error' hide the bar again.
+  function updateNowPlayingBar(status, info) {
+    const bar = $('#voice-now-playing');
+    const label = $('#voice-now-playing-title');
+    if (!bar || !label) return;
+    if (status === 'loading') {
+      label.textContent = `Looking up "${info.title}"…`;
+      bar.classList.remove('hidden');
+    } else if (status === 'playing') {
+      label.textContent = info.title || 'Playing…';
+      bar.classList.remove('hidden');
+    } else {
+      bar.classList.add('hidden');
+    }
   }
 
   function toggleMute() {
@@ -1191,6 +1243,7 @@ const VoiceChat = (() => {
     getConnectedGroupId,
     initResizeHandle,
     refreshSelfTile,
-    triggerReaction
+    triggerReaction,
+    stopSong
   };
 })();

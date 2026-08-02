@@ -37,7 +37,6 @@ function randomColor() {
 // public/js/voice-speech.js) rather than per-user.
 const MAX_VOICE_TRIGGERS = 15;
 const MAX_TRIGGER_PHRASE_LEN = 30;
-const MAX_TRIGGER_EMOJI_LEN = 8;
 const MAX_TRIGGER_SOUND_URL_LEN = 300;
 
 // Languages the voice-command speech recognizer (public/js/voice-speech.js)
@@ -217,7 +216,8 @@ router.patch('/:groupId/voice-commands', async (req, res) => {
 
     // Phrase is lowercased/trimmed server-side since matching is
     // case-insensitive anyway - no point storing "Party" and "party" as if
-    // they differ. soundUrl is optional - the client uploads the clip via
+    // they differ. No emoji/icon is stored - voice commands are silent
+    // except for the optional sound clip. soundUrl is optional - the client uploads the clip via
     // /api/upload first (same flow as avatars/banners/card-effect GIFs) and
     // just sends back the resulting URL here; must point at our own
     // uploads, same restriction as the live voice:reaction relay in
@@ -225,15 +225,11 @@ router.patch('/:groupId/voice-commands', async (req, res) => {
     const cleanedTriggers = [];
     for (const t of voiceCommandTriggers) {
       const phrase = typeof t?.phrase === 'string' ? t.phrase.trim().toLowerCase() : '';
-      const emoji = typeof t?.emoji === 'string' ? t.emoji.trim() : '';
-      if (!phrase || !emoji) {
-        return res.status(400).json({ error: 'Each voice command needs both a word and an emoji' });
+      if (!phrase) {
+        return res.status(400).json({ error: 'Each voice command needs a word' });
       }
       if (phrase.length > MAX_TRIGGER_PHRASE_LEN) {
         return res.status(400).json({ error: `Voice command words must be ${MAX_TRIGGER_PHRASE_LEN} characters or fewer` });
-      }
-      if (emoji.length > MAX_TRIGGER_EMOJI_LEN) {
-        return res.status(400).json({ error: 'Voice command emoji is too long' });
       }
       let soundUrl = null;
       if (typeof t?.soundUrl === 'string' && t.soundUrl.trim()) {
@@ -245,7 +241,7 @@ router.patch('/:groupId/voice-commands', async (req, res) => {
           return res.status(400).json({ error: 'Voice command sound URL is too long' });
         }
       }
-      cleanedTriggers.push({ phrase, emoji, soundUrl });
+      cleanedTriggers.push({ phrase, soundUrl });
     }
 
     const updated = await db.query(
