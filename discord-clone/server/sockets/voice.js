@@ -191,6 +191,16 @@ function registerVoiceHandlers(io, socket, db) {
     socket.to(`voice:${cid}`).emit('voice:gaze', { socketId: socket.id, dx, dy });
   });
 
+  // Reaction burst (e.g. triggered by a voice command) - purely visual/audio,
+  // same lightweight relay pattern as voice:gaze above. The sender shows it
+  // locally on trigger; this just tells everyone else in the room.
+  socket.on('voice:reaction', ({ channelId, emoji }) => {
+    const cid = Number(channelId);
+    if (cid !== socket.currentVoiceChannel) return;
+    const clean = typeof emoji === 'string' ? emoji.slice(0, 8) : '🎉';
+    socket.to(`voice:${cid}`).emit('voice:reaction', { socketId: socket.id, emoji: clean });
+  });
+
   const VALID_TOOLS = new Set(['pen', 'eraser', 'line', 'rect', 'ellipse', 'text']);
 
   // Shared whiteboard: relay a batch of points (freehand pen/eraser points,

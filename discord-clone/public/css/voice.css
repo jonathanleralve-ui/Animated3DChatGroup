@@ -498,6 +498,27 @@
 .tile-badge.muted-badge { background: var(--red); }
 .tile-badge.share-badge { right: auto; left: -2px; background: var(--blurple); }
 
+/* Emoji burst fired by a voice command (see VoiceSpeech) or any future manual
+   reaction trigger - floats up out of the avatar ring and fades away. Ring
+   is position:relative already, so this just needs to be an absolute child. */
+.voice-reaction-emoji {
+  position: absolute;
+  left: 50%;
+  top: 30%;
+  font-size: 34px;
+  transform: translate(-50%, 0);
+  pointer-events: none;
+  z-index: 5;
+  animation: voice-reaction-float 1.4s ease-out forwards;
+}
+
+@keyframes voice-reaction-float {
+  0% { opacity: 0; transform: translate(-50%, 10px) scale(0.6); }
+  15% { opacity: 1; transform: translate(-50%, -10px) scale(1.15); }
+  30% { transform: translate(-50%, -20px) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, -90px) scale(1); }
+}
+
 .btn-icon-round.active-danger { background: var(--red); color: white; }
 .btn-icon-round.active-danger:hover { background: #d33338; }
 

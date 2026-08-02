@@ -83,6 +83,11 @@ const VoiceChat = (() => {
       if (inst && inst.api.setRemoteGaze) inst.api.setRemoteGaze({ dx, dy });
     });
 
+    // Someone else's voice command fired a reaction - show it over their tile.
+    socket.on('voice:reaction', ({ socketId, emoji }) => {
+      showReaction(socketId, emoji);
+    });
+
     startGazeBroadcast();
 
     socket.on('voice:signal', async ({ from, data }) => {
@@ -172,6 +177,9 @@ const VoiceChat = (() => {
 
     if (localMicStream) startSpeakingDetection('self', localMicStream);
     if (typeof VoiceDraw !== 'undefined') VoiceDraw.setActiveChannel(channelId);
+    if (typeof VoiceSpeech !== 'undefined' && VoiceSpeech.supported()) {
+      VoiceSpeech.start((emoji) => triggerReaction(emoji));
+    }
 
     if (typeof Groups !== 'undefined') Groups.refreshChannelHighlight();
     refreshPanelForGroup(openGroupId);
@@ -187,6 +195,7 @@ const VoiceChat = (() => {
     stopSpeakingDetection('self');
     disposeAvatar3D('self');
     if (typeof VoiceDraw !== 'undefined') VoiceDraw.setActiveChannel(null);
+    if (typeof VoiceSpeech !== 'undefined') VoiceSpeech.stop();
 
     if (localMicStream) {
       localMicStream.getTracks().forEach((t) => t.stop());
@@ -207,6 +216,47 @@ const VoiceChat = (() => {
     if (typeof Groups !== 'undefined') Groups.refreshChannelHighlight();
     refreshPanelForGroup(openGroupId);
     void gid;
+  }
+
+  function playReactionSound() {
+    try {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      const ctx = new AudioCtx();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(660, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(990, ctx.currentTime + 0.12);
+      gain.gain.setValueAtTime(0.15, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.25);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.25);
+      osc.onended = () => ctx.close();
+    } catch (err) { /* audio not available - reaction still shows visually */ }
+  }
+
+  // Floats an emoji up out of a participant's avatar ring and fades it out.
+  // key is 'self' or a peer socketId, same lookup used everywhere else here.
+  function showReaction(key, emoji) {
+    const ring = document.querySelector(`.voice-tile[data-speaker="${CSS.escape(key)}"] .avatar-ring`);
+    if (!ring) return;
+    const el = document.createElement('div');
+    el.className = 'voice-reaction-emoji';
+    el.textContent = emoji;
+    ring.appendChild(el);
+    playReactionSound();
+    setTimeout(() => el.remove(), 1400);
+  }
+
+  // Called when our own voice command fires: show it locally right away
+  // (no need to wait on a round trip to our own screen) and tell the server
+  // to relay it to everyone else currently in the channel.
+  function triggerReaction(emoji) {
+    if (!connectedChannelId) return;
+    showReaction('self', emoji);
+    socket.emit('voice:reaction', { channelId: connectedChannelId, emoji });
   }
 
   function toggleMute() {
@@ -1111,6 +1161,7 @@ const VoiceChat = (() => {
     isConnectedTo,
     isConnectedToGroup,
     initResizeHandle,
-    refreshSelfTile
+    refreshSelfTile,
+    triggerReaction
   };
 })();
