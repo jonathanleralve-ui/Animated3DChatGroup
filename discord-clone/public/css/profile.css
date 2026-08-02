@@ -446,7 +446,7 @@
    laid out in a grid, clicking one opens the DM. */
 .friend-card-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  grid-template-columns: repeat(auto-fill, 260px);
   gap: 16px;
 }
 
