@@ -64,7 +64,9 @@
 
 .voice-panel-top {
   display: flex;
-  justify-content: center;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
   flex-shrink: 0;
   padding-top: 10px;
   position: relative; /* stacks above .voice-draw-layer (z-index 3) - controls always stay on top */
@@ -91,6 +93,57 @@
   border: 3px solid #111214;
   box-shadow: 3px 3px 0 #111214;
   z-index: 1;
+}
+
+.voice-now-playing {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 320px;
+  background: var(--bg-darkest);
+  padding: 6px 10px;
+  border-radius: 0;
+  border: 3px solid #111214;
+  box-shadow: 3px 3px 0 #111214;
+  font-family: 'Courier New', monospace;
+  font-size: 12px;
+  color: var(--text-bright);
+}
+
+.voice-now-playing-icon { flex-shrink: 0; }
+
+.voice-now-playing-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.voice-now-playing-stop {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  border-radius: 0;
+  border: 2px solid #111214;
+  background: #ece6d6;
+  color: #111214;
+  font-size: 11px;
+  cursor: pointer;
+}
+.voice-now-playing-stop:hover { background: #f23f43; }
+
+/* Audio-only YouTube player for the "play <song>" voice command - not
+   visually part of the call, so it's pulled off-screen rather than shown,
+   but kept in the DOM and at a real (if tiny) size since the IFrame API
+   needs a rendered element to attach to. */
+.voice-youtube-player {
+  position: absolute;
+  left: -9999px;
+  top: -9999px;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
 }
 
 .btn-icon-round {
@@ -497,27 +550,6 @@
 
 .tile-badge.muted-badge { background: var(--red); }
 .tile-badge.share-badge { right: auto; left: -2px; background: var(--blurple); }
-
-/* Emoji burst fired by a voice command (see VoiceSpeech) or any future manual
-   reaction trigger - floats up out of the avatar ring and fades away. Ring
-   is position:relative already, so this just needs to be an absolute child. */
-.voice-reaction-emoji {
-  position: absolute;
-  left: 50%;
-  top: 30%;
-  font-size: 34px;
-  transform: translate(-50%, 0);
-  pointer-events: none;
-  z-index: 5;
-  animation: voice-reaction-float 1.4s ease-out forwards;
-}
-
-@keyframes voice-reaction-float {
-  0% { opacity: 0; transform: translate(-50%, 10px) scale(0.6); }
-  15% { opacity: 1; transform: translate(-50%, -10px) scale(1.15); }
-  30% { transform: translate(-50%, -20px) scale(1); }
-  100% { opacity: 0; transform: translate(-50%, -90px) scale(1); }
-}
 
 .btn-icon-round.active-danger { background: var(--red); color: white; }
 .btn-icon-round.active-danger:hover { background: #d33338; }

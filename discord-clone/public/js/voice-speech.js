@@ -1,8 +1,13 @@
 // Wake-word style voice command detector for voice chat. Uses the browser's
 // built-in SpeechRecognition (Chrome/Edge; not available in Firefox and only
 // partially in Safari) to listen continuously while connected to a voice
-// channel, and calls back with an emoji (and an optional custom uploaded
-// sound URL) when it hears one of the configured trigger phrases. Note this
+// channel. Handles two kinds of commands:
+//  - fixed trigger words/phrases (configured in the voice-command settings
+//    panel) - calls back with the matched phrase and an optional custom
+//    uploaded sound URL.
+//  - "play <song>" - calls back with whatever was said after "play" so the
+//    caller can look it up on YouTube (see voice-youtube.js).
+// No icon/emoji is shown for either - the only feedback is audio. Note this
 // is NOT local/offline - Chrome's implementation streams audio to Google's
 // servers to transcribe it. If the API isn't supported, start() just no-ops
 // so voice chat itself is unaffected.
@@ -12,11 +17,11 @@ const VoiceSpeech = (() => {
   // Fallback list used until the signed-in user has saved their own words
   // (or if they clear their list back to empty) - see setTriggers() below.
   const DEFAULT_TRIGGERS = [
-    { phrase: 'party', emoji: '🎉' },
-    { phrase: 'gg', emoji: '🏆' },
-    { phrase: 'laugh', emoji: '😂' },
-    { phrase: 'sad', emoji: '😢' },
-    { phrase: 'wow', emoji: '😮' }
+    { phrase: 'party' },
+    { phrase: 'gg' },
+    { phrase: 'laugh' },
+    { phrase: 'sad' },
+    { phrase: 'wow' }
   ];
 
   let TRIGGERS = DEFAULT_TRIGGERS.slice();
@@ -32,10 +37,9 @@ const VoiceSpeech = (() => {
       return;
     }
     const cleaned = list
-      .filter((t) => t && typeof t.phrase === 'string' && t.phrase.trim() && typeof t.emoji === 'string' && t.emoji.trim())
+      .filter((t) => t && typeof t.phrase === 'string' && t.phrase.trim())
       .map((t) => ({
         phrase: t.phrase.trim().toLowerCase(),
-        emoji: t.emoji.trim(),
         soundUrl: typeof t.soundUrl === 'string' && t.soundUrl.trim() ? t.soundUrl.trim() : null
       }));
     TRIGGERS = cleaned.length ? cleaned : DEFAULT_TRIGGERS.slice();
@@ -61,11 +65,19 @@ const VoiceSpeech = (() => {
   }
 
   const COOLDOWN_MS = 1500; // don't refire on the same breath/echoed word
+  const PLAY_COOLDOWN_MS = 4000; // song requests take longer to say/search than a one-word trigger
+  // Matches "play <anything>" (optionally preceded by other words, e.g. "hey
+  // can you play baby by justin bieber") and captures the song text. Only
+  // checked against final results (see onresult below) so the capture group
+  // has the whole request rather than firing on "play b" mid-sentence.
+  const PLAY_RE = /\bplay\s+(.+)/i;
 
   let recognition = null;
   let listening = false; // intent flag - distinguishes "stopped on purpose" from onend's auto-restart
   let onTrigger = null;
+  let onPlaySong = null;
   let lastTriggerAt = 0;
+  let lastPlayAt = 0;
 
   function supported() {
     return !!SpeechRecognitionImpl;
@@ -74,19 +86,35 @@ const VoiceSpeech = (() => {
   function checkForTrigger(transcript) {
     const heard = transcript.toLowerCase();
     const now = Date.now();
-    if (now - lastTriggerAt < COOLDOWN_MS) return;
-    const match = TRIGGERS.find((t) => heard.includes(t.phrase));
-    if (match) {
-      lastTriggerAt = now;
-      console.log('[VoiceSpeech] trigger matched:', match.phrase, '->', match.emoji);
-      if (onTrigger) onTrigger(match.emoji, match.phrase, match.soundUrl);
+    if (now - lastTriggerAt >= COOLDOWN_MS) {
+      const match = TRIGGERS.find((t) => heard.includes(t.phrase));
+      if (match) {
+        lastTriggerAt = now;
+        console.log('[VoiceSpeech] trigger matched:', match.phrase);
+        if (onTrigger) onTrigger(match.phrase, match.soundUrl);
+      }
     }
   }
 
-  // triggerCallback(emoji, phrase) is called whenever a trigger word is heard.
-  function start(triggerCallback) {
+  function checkForPlayCommand(transcript) {
+    const now = Date.now();
+    if (now - lastPlayAt < PLAY_COOLDOWN_MS) return;
+    const match = transcript.match(PLAY_RE);
+    if (match && match[1].trim()) {
+      lastPlayAt = now;
+      const query = match[1].trim();
+      console.log('[VoiceSpeech] play command matched:', query);
+      if (onPlaySong) onPlaySong(query);
+    }
+  }
+
+  // triggerCallback(phrase, soundUrl) is called whenever a trigger word is
+  // heard. playCallback(query) is called whenever "play <something>" is
+  // heard - query is the raw, uncleaned text said after "play".
+  function start(triggerCallback, playCallback) {
     if (!supported() || listening) return;
     onTrigger = triggerCallback;
+    onPlaySong = playCallback;
     listening = true;
     startRecognitionInstance();
   }
@@ -103,6 +131,7 @@ const VoiceSpeech = (() => {
       const result = event.results[event.results.length - 1];
       console.log('[VoiceSpeech] heard:', result[0].transcript, result.isFinal ? '(final)' : '(interim)');
       checkForTrigger(result[0].transcript);
+      if (result.isFinal) checkForPlayCommand(result[0].transcript);
     };
 
     // Chrome silently ends recognition after a stretch of silence (or the

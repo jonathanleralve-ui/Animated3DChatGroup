@@ -112,5 +112,12 @@ const Api = (() => {
     }
   };
 
-  return { request, auth, friends, groups, channels, messages, avatarModel };
+  const youtube = {
+    // Used by the "play <song>" voice command. q is whatever raw text
+    // speech recognition heard after "play" - the server hands it straight
+    // to YouTube's search and returns the first result.
+    search: (q) => request(`/youtube/search?q=${encodeURIComponent(q)}`)
+  };
+
+  return { request, auth, friends, groups, channels, messages, avatarModel, youtube };
 })();

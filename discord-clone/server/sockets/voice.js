@@ -191,18 +191,38 @@ function registerVoiceHandlers(io, socket, db) {
     socket.to(`voice:${cid}`).emit('voice:gaze', { socketId: socket.id, dx, dy });
   });
 
-  // Reaction burst (e.g. triggered by a voice command) - purely visual/audio,
-  // same lightweight relay pattern as voice:gaze above. The sender shows it
+  // Reaction burst (e.g. triggered by a voice command) - purely audio, same
+  // lightweight relay pattern as voice:gaze above. The sender plays it
   // locally on trigger; this just tells everyone else in the room.
   // soundUrl is optional (a member-uploaded clip for that trigger word) -
   // only relayed if it actually points at our own uploads, so a tampered
   // client can't make peers fetch/play an arbitrary external URL.
-  socket.on('voice:reaction', ({ channelId, emoji, soundUrl }) => {
+  socket.on('voice:reaction', ({ channelId, soundUrl }) => {
     const cid = Number(channelId);
     if (cid !== socket.currentVoiceChannel) return;
-    const clean = typeof emoji === 'string' ? emoji.slice(0, 8) : '🎉';
     const cleanSoundUrl = typeof soundUrl === 'string' && soundUrl.startsWith('/uploads/') ? soundUrl.slice(0, 300) : null;
-    socket.to(`voice:${cid}`).emit('voice:reaction', { socketId: socket.id, emoji: clean, soundUrl: cleanSoundUrl });
+    socket.to(`voice:${cid}`).emit('voice:reaction', { socketId: socket.id, soundUrl: cleanSoundUrl });
+  });
+
+  // "play <song>" voice command (see public/js/voice-speech.js and
+  // voice-youtube.js) - the sender already looked the song up via
+  // /api/youtube/search and just relays the resulting video ID here so
+  // everyone else's hidden YouTube player loads the same video. Video IDs
+  // are always exactly 11 URL-safe characters, so validate against that
+  // shape rather than trusting the client.
+  const YOUTUBE_ID_RE = /^[A-Za-z0-9_-]{11}$/;
+  socket.on('voice:play-song', ({ channelId, videoId, title }) => {
+    const cid = Number(channelId);
+    if (cid !== socket.currentVoiceChannel) return;
+    if (typeof videoId !== 'string' || !YOUTUBE_ID_RE.test(videoId)) return;
+    const cleanTitle = typeof title === 'string' ? title.slice(0, 200) : '';
+    socket.to(`voice:${cid}`).emit('voice:play-song', { socketId: socket.id, videoId, title: cleanTitle });
+  });
+
+  socket.on('voice:stop-song', ({ channelId }) => {
+    const cid = Number(channelId);
+    if (cid !== socket.currentVoiceChannel) return;
+    socket.to(`voice:${cid}`).emit('voice:stop-song', { socketId: socket.id });
   });
 
   const VALID_TOOLS = new Set(['pen', 'eraser', 'line', 'rect', 'ellipse', 'text']);
