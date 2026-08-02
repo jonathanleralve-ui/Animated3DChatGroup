@@ -65,6 +65,14 @@ function initSockets(io) {
     registerMessagingHandlers(io, socket, db);
     registerVoiceHandlers(io, socket, db);
 
+    // Round-trip latency check for the titlebar ping display: client sends
+    // a timestamp, we ack immediately, client computes Date.now() - the
+    // timestamp it sent to get real RTT (not socket.io's internal heartbeat,
+    // which isn't exposed to app code).
+    socket.on('ping:check', (clientTime, cb) => {
+      if (typeof cb === 'function') cb(clientTime);
+    });
+
     socket.on('disconnect', () => {
       if (socket.currentVoiceChannel) {
         leaveVoiceChannel(io, socket, socket.currentVoiceChannel);

@@ -63,6 +63,19 @@ input { font-family: inherit; }
   opacity: 0.85;
 }
 
+.site-titlebar-ping {
+  flex: none;
+  font-family: 'Press Start 2P', 'Courier New', monospace;
+  font-size: 9px;
+  letter-spacing: 0.5px;
+  color: #3ba55d;
+  white-space: nowrap;
+  padding: 0 2px;
+}
+.site-titlebar-ping.ping-ok { color: #f0b232; }
+.site-titlebar-ping.ping-bad { color: #f23f43; }
+.site-titlebar-ping.ping-down { color: #72767d; }
+
 .site-titlebar-close {
   flex: none;
   width: 20px;

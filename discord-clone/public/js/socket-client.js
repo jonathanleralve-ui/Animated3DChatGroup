@@ -88,7 +88,49 @@ const SocketClient = (() => {
       alert(error);
     });
 
+    startPingLoop(socket);
+
     return socket;
+  }
+
+  // Pings the server every few seconds via an acked event and shows the
+  // round-trip time in the titlebar. Colored like a typical ping meter:
+  // green = good, yellow = mid, red = poor, grey = disconnected.
+  function startPingLoop(socket) {
+    const el = document.getElementById('site-titlebar-ping');
+    if (!el) return;
+
+    if (AppState.pingInterval) clearInterval(AppState.pingInterval);
+
+    const setPing = (ms) => {
+      el.classList.remove('ping-ok', 'ping-bad', 'ping-down');
+      if (ms == null) {
+        el.textContent = '-- ms';
+        el.classList.add('ping-down');
+        return;
+      }
+      el.textContent = `${ms} ms`;
+      if (ms > 100) el.classList.add('ping-bad');
+      else if (ms > 50) el.classList.add('ping-ok');
+    };
+
+    const sendPing = () => {
+      if (!socket.connected) {
+        setPing(null);
+        return;
+      }
+      const sentAt = Date.now();
+      socket.timeout(5000).emit('ping:check', sentAt, (err) => {
+        if (err) { setPing(null); return; }
+        setPing(Date.now() - sentAt);
+      });
+    };
+
+    socket.on('disconnect', () => setPing(null));
+    socket.on('connect', sendPing);
+
+    sendPing();
+    AppState.pingInterval = setInterval(sendPing, 1000);
   }
 
   return { connect };
