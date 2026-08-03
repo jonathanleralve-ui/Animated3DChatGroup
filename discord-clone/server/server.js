@@ -49,9 +49,31 @@ initSockets(io);
 
 async function start() {
   await db.init();
-  server.listen(PORT, () => {
-    console.log(`Discord-clone server running at http://localhost:${PORT}`);
+
+  const requestedPort = Number(PORT) || 3000;
+  const tryListen = (port) => new Promise((resolve, reject) => {
+    const onError = (err) => {
+      if (err.code === 'EADDRINUSE') {
+        const fallbackPort = port + 1;
+        server.off('error', onError);
+        console.warn(`Port ${port} is busy; trying ${fallbackPort} instead.`);
+        tryListen(fallbackPort).then(resolve).catch(reject);
+        return;
+      }
+
+      server.off('error', onError);
+      reject(err);
+    };
+
+    server.once('error', onError);
+    server.listen(port, () => {
+      server.off('error', onError);
+      resolve(port);
+    });
   });
+
+  const actualPort = await tryListen(requestedPort);
+  console.log(`Discord-clone server running at http://localhost:${actualPort}`);
 }
 
 start().catch((err) => {
