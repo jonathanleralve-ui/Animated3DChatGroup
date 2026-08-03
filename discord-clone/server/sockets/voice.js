@@ -205,6 +205,15 @@ function registerVoiceHandlers(io, socket, db) {
     socket.to(`voice:${cid}`).emit('voice:gaze', { socketId: socket.id, dx, dy });
   });
 
+  // Relays the sender's mouse-hold "surprise expression" state, same
+  // lightweight relay pattern as voice:gaze above - purely visual, so it
+  // skips roster/broadcastRoster entirely.
+  socket.on('voice:mouse-hold', ({ channelId, held }) => {
+    const cid = Number(channelId);
+    if (cid !== socket.currentVoiceChannel) return;
+    socket.to(`voice:${cid}`).emit('voice:mouse-hold', { socketId: socket.id, held: !!held });
+  });
+
   // Reaction burst (e.g. triggered by a voice command) - purely audio, same
   // lightweight relay pattern as voice:gaze above. The sender plays it
   // locally on trigger; this just tells everyone else in the room.

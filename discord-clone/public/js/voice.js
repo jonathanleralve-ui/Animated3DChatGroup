@@ -88,6 +88,13 @@ const VoiceChat = (() => {
       if (inst && inst.api.setRemoteGaze) inst.api.setRemoteGaze({ dx, dy });
     });
 
+    // Someone else is mouse-holding their own tile - mirror the surprise
+    // expression on our copy of their avatar.
+    socket.on('voice:mouse-hold', ({ socketId, held }) => {
+      const inst = avatar3DInstances[socketId];
+      if (inst && inst.api.setMouseHoldSurprise) inst.api.setMouseHoldSurprise(held);
+    });
+
     // Someone else's voice command fired a reaction - show it over their tile.
     socket.on('voice:reaction', ({ soundUrl }) => {
       showReaction(soundUrl);
@@ -682,7 +689,7 @@ const VoiceChat = (() => {
     }, 150);
   }
 
-  function mountAvatar3D(ring, key, modelUrl, zoom, offsetX, offsetY, rotationY, mouthIntensity, voiceStart, voiceMax, blinkIntensity, blinkIntervalMin, blinkIntervalMax, blinkEnabled, blinkShapeKeys, lookAtCursor, surpriseShapeKeys) {
+  function mountAvatar3D(ring, key, modelUrl, zoom, offsetX, offsetY, rotationY, mouthIntensity, voiceStart, voiceMax, blinkIntensity, blinkIntervalMin, blinkIntervalMax, blinkEnabled, blinkShapeKeys, lookAtCursor, surpriseShapeKeys, isSelf) {
     let inst = avatar3DInstances[key];
 
     if (inst && inst.modelUrl !== modelUrl) {
@@ -710,6 +717,24 @@ const VoiceChat = (() => {
         onError: () => { container.classList.add('avatar-3d-error'); }
       });
       inst = avatar3DInstances[key] = { api, modelUrl, container };
+
+      // Only the local user's own tile should broadcast its hold state -
+      // this is the container avatar3d.js already listens on locally to
+      // drive mouseIsHeld for the surprise expression (see its own
+      // pointerdown/pointerup handlers); we just piggyback the same events
+      // here to relay the state to everyone else, same idea as
+      // startGazeBroadcast() but event-driven instead of polled since hold
+      // is a discrete on/off rather than a continuous value.
+      if (isSelf) {
+        container.addEventListener('pointerdown', () => {
+          if (connectedChannelId) socket.emit('voice:mouse-hold', { channelId: connectedChannelId, held: true });
+        });
+        const sendRelease = () => {
+          if (connectedChannelId) socket.emit('voice:mouse-hold', { channelId: connectedChannelId, held: false });
+        };
+        container.addEventListener('pointerup', sendRelease);
+        container.addEventListener('pointerleave', sendRelease);
+      }
 
       // createAvatar() just sized the renderer off container.clientWidth,
       // but the container is still detached at this point (it's only
@@ -936,7 +961,7 @@ const VoiceChat = (() => {
     }, { passive: false });
 
     if (avatarMode === '3d' && avatarModelUrl) {
-      mountAvatar3D(ring, key, avatarModelUrl, avatarModelZoom, avatarModelOffsetX, avatarModelOffsetY, avatarModelRotationY, avatarModelMouthIntensity, avatarModelVoiceStart, avatarModelVoiceMax, avatarModelBlinkIntensity, avatarModelBlinkIntervalMin, avatarModelBlinkIntervalMax, avatarModelBlinkEnabled, avatarModelBlinkShapeKeys, isSelf && avatarModelLookEnabled, avatarModelSurpriseShapeKeys);
+      mountAvatar3D(ring, key, avatarModelUrl, avatarModelZoom, avatarModelOffsetX, avatarModelOffsetY, avatarModelRotationY, avatarModelMouthIntensity, avatarModelVoiceStart, avatarModelVoiceMax, avatarModelBlinkIntensity, avatarModelBlinkIntervalMin, avatarModelBlinkIntervalMax, avatarModelBlinkEnabled, avatarModelBlinkShapeKeys, isSelf && avatarModelLookEnabled, avatarModelSurpriseShapeKeys, isSelf);
     } else {
       disposeAvatar3D(key);
       const avatar = avatarEl({ displayName: name, avatarColor: color, avatarUrl: avatarUrl });
