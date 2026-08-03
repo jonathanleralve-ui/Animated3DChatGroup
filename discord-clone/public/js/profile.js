@@ -806,6 +806,7 @@ const Profile = (() => {
   function renderShapeKeyHint(names) {
     const datalist = $('#edit-profile-model-shapekeys-datalist');
     const mouthDatalist = $('#edit-profile-model-mouth-shapekeys-datalist');
+    const surpriseDatalist = $('#edit-profile-model-surprise-shapekeys-datalist');
     if (datalist) {
       datalist.innerHTML = '';
       names.filter(isEyeRelatedShapeKey).forEach((name) => {
@@ -828,6 +829,19 @@ const Profile = (() => {
         const translated = translateShapeKeyName(name);
         opt.label = translated || name;
         mouthDatalist.appendChild(opt);
+      });
+    }
+    if (surpriseDatalist) {
+      // Surprise can be built from any shape key on the model - eyes,
+      // eyebrows, mouth, or custom ones - so unlike the blink/mouth fields
+      // above, this one is intentionally left unfiltered.
+      surpriseDatalist.innerHTML = '';
+      names.forEach((name) => {
+        const opt = document.createElement('option');
+        opt.value = name;
+        const translated = translateShapeKeyName(name);
+        opt.label = translated || name;
+        surpriseDatalist.appendChild(opt);
       });
     }
   }

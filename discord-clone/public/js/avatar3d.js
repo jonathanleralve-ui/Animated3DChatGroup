@@ -392,7 +392,8 @@ function createAvatar3D(container, options = {}) {
                         foundBlink.push({ index: dict[key], inf });
                     }
                     if (surpriseNames.some((n) => lower.includes(n.toLowerCase()))) {
-                        foundSurprise.push({ index: dict[key], inf });
+                        const matchedName = surpriseNames.find((n) => lower.includes(n.toLowerCase()));
+                        foundSurprise.push({ index: dict[key], inf, name: matchedName });
                     }
                 });
             }
