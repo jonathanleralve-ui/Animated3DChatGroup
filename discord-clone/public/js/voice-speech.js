@@ -183,6 +183,11 @@ const VoiceSpeech = (() => {
     };
 
     recognition.onerror = (e) => {
+      if (e.error === 'not-allowed' || e.error === 'service-not-allowed' || e.error === 'permission-denied') {
+        console.warn('[VoiceSpeech] recognition permission denied:', e.error);
+        stop();
+        return;
+      }
       if (e.error !== 'no-speech' && e.error !== 'aborted' && e.error !== 'network') {
         console.warn('[VoiceSpeech] recognition error:', e.error);
       }

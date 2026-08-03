@@ -12,7 +12,7 @@ const voiceRooms = new Map();
 // the rest of the call state. strokeId is always `${socketId}-...`, which
 // doubles as an ownership check for undo (see voice:draw-undo below).
 const voiceDraw = new Map();
-// channelId -> { videoId, title }
+// channelId -> { videoId, title, startedAt }
 // Keeps the current YouTube playback info for the voice channel so late
 // joiners can catch up to the live stream without waiting for another
 // participant to trigger it again.
@@ -228,8 +228,9 @@ function registerVoiceHandlers(io, socket, db) {
     if (cid !== socket.currentVoiceChannel) return;
     if (typeof videoId !== 'string' || !YOUTUBE_ID_RE.test(videoId)) return;
     const cleanTitle = typeof title === 'string' ? title.slice(0, 200) : '';
-    voiceCurrentSong.set(cid, { videoId, title: cleanTitle });
-    io.to(`voice:${cid}`).emit('voice:play-song', { socketId: socket.id, videoId, title: cleanTitle });
+    const startedAt = Date.now();
+    voiceCurrentSong.set(cid, { videoId, title: cleanTitle, startedAt });
+    io.to(`voice:${cid}`).emit('voice:play-song', { socketId: socket.id, videoId, title: cleanTitle, startedAt });
   });
 
   socket.on('voice:stop-song', ({ channelId }) => {

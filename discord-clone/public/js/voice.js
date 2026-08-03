@@ -63,11 +63,6 @@ const VoiceChat = (() => {
       renderParticipants();
     });
 
-    socket.on('voice:current-song', ({ videoId, title }) => {
-      if (typeof VoiceYoutube === 'undefined' || !videoId) return;
-      VoiceYoutube.play(videoId, title);
-    });
-
     socket.on('voice:peer-screen-update', ({ socketId, sharing }) => {
       if (peers[socketId]) peers[socketId].info.sharing = sharing;
       if (!sharing) removeRemoteVideoTile(socketId);
@@ -95,14 +90,23 @@ const VoiceChat = (() => {
 
     // Someone else said "play <song>" - load the same video into our own
     // hidden player too, so the whole channel hears it.
-    socket.on('voice:play-song', ({ videoId, title }) => {
-      if (typeof VoiceYoutube === 'undefined') return;
-      VoiceYoutube.play(videoId, title);
+    const startCurrentSong = ({ videoId, title, startedAt }) => {
+      if (typeof VoiceYoutube === 'undefined' || !videoId) return;
+      const startSeconds = startedAt ? (Date.now() - startedAt) / 1000 : 0;
+      VoiceYoutube.play(videoId, title, Math.max(0, startSeconds));
+    };
+
+    socket.on('voice:play-song', ({ videoId, title, startedAt }) => {
+      startCurrentSong({ videoId, title, startedAt });
     });
 
     socket.on('voice:stop-song', () => {
       if (typeof VoiceYoutube === 'undefined') return;
       VoiceYoutube.stop();
+    });
+
+    socket.on('voice:current-song', (song) => {
+      startCurrentSong(song);
     });
 
     if (typeof VoiceYoutube !== 'undefined') {
@@ -203,14 +207,16 @@ const VoiceChat = (() => {
 
     $('#edit-profile-panel').classList.add('hidden');
 
-    if (localMicStream) startSpeakingDetection('self', localMicStream);
-    if (typeof VoiceDraw !== 'undefined') VoiceDraw.setActiveChannel(channelId);
-    if (typeof VoiceSpeech !== 'undefined' && VoiceSpeech.supported()) {
-      const group = (typeof AppState !== 'undefined' && AppState.groupsData) ? AppState.groupsData.find((g) => g.id === groupId) : null;
-      VoiceSpeech.setTriggers(group && group.voiceCommandTriggers);
-      VoiceSpeech.setLanguage(group && group.voiceCommandLanguage);
-      VoiceSpeech.start((phrase, soundUrl) => triggerReaction(soundUrl), (query) => playSongCommand(query));
+    if (localMicStream) {
+      startSpeakingDetection('self', localMicStream);
+      if (typeof VoiceSpeech !== 'undefined' && VoiceSpeech.supported()) {
+        const group = (typeof AppState !== 'undefined' && AppState.groupsData) ? AppState.groupsData.find((g) => g.id === groupId) : null;
+        VoiceSpeech.setTriggers(group && group.voiceCommandTriggers);
+        VoiceSpeech.setLanguage(group && group.voiceCommandLanguage);
+        VoiceSpeech.start((phrase, soundUrl) => triggerReaction(soundUrl), (query) => playSongCommand(query));
+      }
     }
+    if (typeof VoiceDraw !== 'undefined') VoiceDraw.setActiveChannel(channelId);
 
     if (typeof Groups !== 'undefined') Groups.refreshChannelHighlight();
     refreshPanelForGroup(openGroupId);

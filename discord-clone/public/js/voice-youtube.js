@@ -58,11 +58,11 @@ const VoiceYoutube = (() => {
 
   // title is just for the "now playing" UI - it comes from whatever the
   // YouTube search returned (see Api.youtube.search), not re-verified here.
-  async function play(videoId, title) {
+  async function play(videoId, title, startSeconds = 0) {
     currentTitle = title || null;
     if (onStateChange) onStateChange('loading', { title: currentTitle });
     const p = await init('voice-youtube-player');
-    p.loadVideoById(videoId);
+    p.loadVideoById({ videoId, startSeconds: Number(startSeconds) || 0 });
   }
 
   function stop() {
