@@ -62,11 +62,23 @@ const Profile = (() => {
   // animation - same idea as selectedBlinkShapeKeys above, but for mouth
   // morphs instead of eye morphs. Empty = auto-detect as before.
   let selectedMouthShapeKeys = '';
-  // Manual overrides for the mouse-hold surprise expression. Each entry can
-  // target a specific morph name and its own intensity (0-1). Empty entries
-  // are ignored. If all three are empty, the built-in surprise/shock keyword
-  // list is used instead.
-  let selectedSurpriseEntries = [{ name: '', intensity: 1 }, { name: '', intensity: 1 }, { name: '', intensity: 1 }];
+  // Manual overrides for the mouse-hold surprise expression. The user can
+  // save up to 5 different combos ("slots"), each up to 3 shape keys with
+  // their own intensity (0-1) - e.g. one slot for a startled face, another
+  // for a wink, another for a full anime-shock take. Only one slot is
+  // "active" at a time (activeSurpriseSlot) - that's the combo actually
+  // broadcast and rendered when the user holds the mouse down, for
+  // themselves and everyone else in the call. editingSurpriseSlot is purely
+  // local UI state: which slot's fields are currently shown in Edit Profile
+  // for tuning, independent of which one is live, so switching tabs to
+  // tweak a different slot can't accidentally change what's playing until
+  // the user explicitly hits "Use this slot on hold". Empty entries in a
+  // slot are ignored; a slot with none set falls back to the built-in
+  // surprise/shock keyword auto-detect if/when it's made active.
+  const SURPRISE_SLOT_COUNT = 5;
+  let selectedSurpriseSlots = makeEmptySurpriseSlots();
+  let activeSurpriseSlot = 0;
+  let editingSurpriseSlot = 0;
   // Head/eye gaze tracking toggle. Default matches avatar3d.js's default.
   let selectedLookEnabled = true;
 
@@ -589,7 +601,7 @@ const Profile = (() => {
       blinkEnabled: selectedBlinkEnabled,
       blinkShapeKeys: selectedBlinkShapeKeys,
       mouthShapeKeys: selectedMouthShapeKeys,
-      surpriseShapeKeys: serializeSurpriseEntries(selectedSurpriseEntries),
+      surpriseShapeKeys: serializeSurpriseEntries(selectedSurpriseSlots[editingSurpriseSlot]),
       lookAtCursor: selectedLookEnabled,
       onReady: ({ shapeKeyNames } = {}) => {
         box.classList.remove('model-preview-loading');
@@ -905,30 +917,63 @@ const Profile = (() => {
     return [{ name: '', intensity: 1 }, { name: '', intensity: 1 }, { name: '', intensity: 1 }];
   }
 
-  function parseSurpriseEntries(value) {
-    if (!value) return makeEmptySurpriseEntries();
-    if (Array.isArray(value)) {
-      return value.slice(0, 3).map((entry) => {
-        if (typeof entry === 'string') return { name: entry.trim(), intensity: 1 };
-        if (entry && typeof entry === 'object') {
-          const intensity = Number(entry.intensity);
-          return { name: String(entry.name || '').trim(), intensity: Number.isFinite(intensity) ? Math.min(1, Math.max(0, intensity)) : 1 };
-        }
-        return { name: '', intensity: 1 };
-      });
-    }
+  function makeEmptySurpriseSlots() {
+    return Array.from({ length: SURPRISE_SLOT_COUNT }, () => makeEmptySurpriseEntries());
+  }
+
+  function normalizeSurpriseEntryList(list) {
+    const source = Array.isArray(list) ? list : [];
+    return [0, 1, 2].map((index) => {
+      const entry = source[index];
+      if (typeof entry === 'string') return { name: entry.trim(), intensity: 1 };
+      if (entry && typeof entry === 'object') {
+        const intensity = Number(entry.intensity);
+        return { name: String(entry.name || '').trim(), intensity: Number.isFinite(intensity) ? Math.min(1, Math.max(0, intensity)) : 1 };
+      }
+      return { name: '', intensity: 1 };
+    });
+  }
+
+  // Reads whatever's saved on the profile - the new { slots, active } format,
+  // the old flat array/JSON-string of up to 3 entries from before slots
+  // existed, or the even older single-shape-key-name string - and always
+  // comes back with a full 5-slot structure so the rest of the UI doesn't
+  // need to know which era the saved data came from.
+  function parseSurpriseProfile(value) {
+    const empty = () => ({ slots: makeEmptySurpriseSlots(), active: 0 });
+    if (!value) return empty();
+
+    let parsed = value;
     if (typeof value === 'string') {
       const trimmed = value.trim();
-      if (!trimmed) return makeEmptySurpriseEntries();
+      if (!trimmed) return empty();
       try {
-        const parsed = JSON.parse(trimmed);
-        if (Array.isArray(parsed)) return parseSurpriseEntries(parsed);
+        parsed = JSON.parse(trimmed);
       } catch (e) {
-        // Fall back to the legacy single-name string format.
+        // Legacy plain single shape-key-name string (pre-dates JSON entries).
+        const result = empty();
+        result.slots[0] = normalizeSurpriseEntryList([{ name: trimmed, intensity: 1 }]);
+        return result;
       }
-      return [{ name: trimmed, intensity: 1 }, { name: '', intensity: 1 }, { name: '', intensity: 1 }];
     }
-    return makeEmptySurpriseEntries();
+
+    if (parsed && typeof parsed === 'object' && Array.isArray(parsed.slots)) {
+      const result = empty();
+      parsed.slots.slice(0, SURPRISE_SLOT_COUNT).forEach((entries, index) => {
+        result.slots[index] = normalizeSurpriseEntryList(entries);
+      });
+      result.active = Number.isInteger(parsed.active) && parsed.active >= 0 && parsed.active < SURPRISE_SLOT_COUNT ? parsed.active : 0;
+      return result;
+    }
+
+    if (Array.isArray(parsed)) {
+      // Legacy single-slot format: a flat array of up to 3 entries.
+      const result = empty();
+      result.slots[0] = normalizeSurpriseEntryList(parsed);
+      return result;
+    }
+
+    return empty();
   }
 
   function serializeSurpriseEntries(entries) {
@@ -939,9 +984,45 @@ const Profile = (() => {
     return JSON.stringify(normalized);
   }
 
+  function serializeSurpriseProfile(slots, active) {
+    const cleanedSlots = (slots || makeEmptySurpriseSlots()).slice(0, SURPRISE_SLOT_COUNT).map((entries) => (entries || [])
+      .slice(0, 3)
+      .map((entry) => ({
+        name: String(entry?.name || '').trim(),
+        intensity: Number.isFinite(Number(entry?.intensity)) ? Math.min(1, Math.max(0, Number(entry.intensity))) : 1,
+      }))
+      .filter((entry) => entry.name));
+    const activeIndex = Number.isInteger(active) && active >= 0 && active < SURPRISE_SLOT_COUNT ? active : 0;
+    return JSON.stringify({ slots: cleanedSlots, active: activeIndex });
+  }
+
+  // Live-previews whichever slot is currently being edited (not necessarily
+  // the active one) against the 3D preview, so the user can hold-click to
+  // audition a slot before committing it with "Use this slot on hold".
+  function previewCurrentSurpriseSlot() {
+    if (!modelPreviewInstance) return;
+    const entries = selectedSurpriseSlots[editingSurpriseSlot] || makeEmptySurpriseEntries();
+    modelPreviewInstance.setSurpriseShapeKeys(serializeSurpriseEntries(entries));
+  }
+
+  function renderSurpriseSlotTabs() {
+    $$('.surprise-slot-tab').forEach((tab) => {
+      const idx = Number(tab.dataset.slot);
+      tab.classList.toggle('editing', idx === editingSurpriseSlot);
+      tab.classList.toggle('is-active-slot', idx === activeSurpriseSlot);
+    });
+    const hint = $('#edit-profile-model-surprise-slot-hint');
+    if (hint) {
+      hint.textContent = editingSurpriseSlot === activeSurpriseSlot
+        ? `Editing slot ${editingSurpriseSlot + 1} - this is the one everyone sees when you hold click.`
+        : `Editing slot ${editingSurpriseSlot + 1} (not live yet - slot ${activeSurpriseSlot + 1} is what everyone currently sees).`;
+    }
+  }
+
   function renderSurpriseControls() {
+    const entries = selectedSurpriseSlots[editingSurpriseSlot] || makeEmptySurpriseEntries();
     [0, 1, 2].forEach((index) => {
-      const entry = selectedSurpriseEntries[index] || { name: '', intensity: 1 };
+      const entry = entries[index] || { name: '', intensity: 1 };
       const input = $(`#edit-profile-model-surprise-${index + 1}-shapekeys-input`);
       const slider = $(`#edit-profile-model-surprise-${index + 1}-slider`);
       const value = $(`#edit-profile-model-surprise-${index + 1}-value`);
@@ -949,24 +1030,38 @@ const Profile = (() => {
       if (slider) slider.value = String(entry.intensity ?? 1);
       if (value) value.textContent = `${Math.round((entry.intensity ?? 1) * 100)}%`;
     });
+    renderSurpriseSlotTabs();
+  }
+
+  function switchEditingSurpriseSlot(index) {
+    editingSurpriseSlot = Math.min(SURPRISE_SLOT_COUNT - 1, Math.max(0, Number(index) || 0));
+    renderSurpriseControls();
+    previewCurrentSurpriseSlot();
+  }
+
+  function useEditingSlotAsActive() {
+    activeSurpriseSlot = editingSurpriseSlot;
+    renderSurpriseSlotTabs();
   }
 
   function applySurpriseShapeKeysFromInput(index, value) {
-    selectedSurpriseEntries[index] = { ...(selectedSurpriseEntries[index] || { name: '', intensity: 1 }), name: value };
-    if (modelPreviewInstance) modelPreviewInstance.setSurpriseShapeKeys(serializeSurpriseEntries(selectedSurpriseEntries));
+    const entries = selectedSurpriseSlots[editingSurpriseSlot];
+    entries[index] = { ...(entries[index] || { name: '', intensity: 1 }), name: value };
+    previewCurrentSurpriseSlot();
   }
 
   function applySurpriseIntensityFromSlider(index, value) {
     const intensity = Number(value);
-    selectedSurpriseEntries[index] = { ...(selectedSurpriseEntries[index] || { name: '', intensity: 1 }), intensity: Number.isFinite(intensity) ? Math.min(1, Math.max(0, intensity)) : 1 };
+    const entries = selectedSurpriseSlots[editingSurpriseSlot];
+    entries[index] = { ...(entries[index] || { name: '', intensity: 1 }), intensity: Number.isFinite(intensity) ? Math.min(1, Math.max(0, intensity)) : 1 };
     renderSurpriseControls();
-    if (modelPreviewInstance) modelPreviewInstance.setSurpriseShapeKeys(serializeSurpriseEntries(selectedSurpriseEntries));
+    previewCurrentSurpriseSlot();
   }
 
   function resetSurpriseSettings() {
-    selectedSurpriseEntries = makeEmptySurpriseEntries();
+    selectedSurpriseSlots[editingSurpriseSlot] = makeEmptySurpriseEntries();
     renderSurpriseControls();
-    if (modelPreviewInstance) modelPreviewInstance.setSurpriseShapeKeys(serializeSurpriseEntries(selectedSurpriseEntries));
+    previewCurrentSurpriseSlot();
   }
 
   function applyLookToggle(enabled) {
@@ -1158,7 +1253,12 @@ const Profile = (() => {
     selectedBlinkEnabled = AppState.me.avatarModelBlinkEnabled ?? true;
     selectedBlinkShapeKeys = AppState.me.avatarModelBlinkShapeKeys ?? '';
     selectedMouthShapeKeys = AppState.me.avatarModelMouthShapeKeys ?? '';
-    selectedSurpriseEntries = parseSurpriseEntries(AppState.me.avatarModelSurpriseShapeKeys ?? '');
+    {
+      const surprise = parseSurpriseProfile(AppState.me.avatarModelSurpriseShapeKeys ?? '');
+      selectedSurpriseSlots = surprise.slots;
+      activeSurpriseSlot = surprise.active;
+      editingSurpriseSlot = surprise.active;
+    }
     selectedLookEnabled = AppState.me.avatarModelLookEnabled ?? true;
     selectedBannerUrl = AppState.me.bannerUrl || null;
     pendingBannerFile = null;
@@ -1230,7 +1330,7 @@ const Profile = (() => {
         avatarModelBlinkIntensity: selectedBlinkIntensity, avatarModelBlinkIntervalMin: selectedBlinkIntervalMin, avatarModelBlinkIntervalMax: selectedBlinkIntervalMax, avatarModelBlinkEnabled: selectedBlinkEnabled,
         avatarModelBlinkShapeKeys: selectedBlinkShapeKeys,
         avatarModelMouthShapeKeys: selectedMouthShapeKeys,
-        avatarModelSurpriseShapeKeys: serializeSurpriseEntries(selectedSurpriseEntries),
+        avatarModelSurpriseShapeKeys: serializeSurpriseProfile(selectedSurpriseSlots, activeSurpriseSlot),
         avatarModelLookEnabled: selectedLookEnabled,
         bannerUrl, bannerZoom: selectedBannerZoom, bannerOffsetX: selectedBannerOffsetX, bannerOffsetY: selectedBannerOffsetY,
         avatarBorderStyle: selectedAvatarBorderStyle, avatarBorderColor: selectedAvatarBorderColor,
@@ -1389,7 +1489,9 @@ const Profile = (() => {
       selectedBlinkEnabled = true;
       selectedBlinkShapeKeys = '';
       selectedMouthShapeKeys = '';
-      selectedSurpriseEntries = makeEmptySurpriseEntries();
+      selectedSurpriseSlots = makeEmptySurpriseSlots();
+      activeSurpriseSlot = 0;
+      editingSurpriseSlot = 0;
       selectedLookEnabled = true;
       renderModelSection();
       disposeModelPreview();
@@ -1416,6 +1518,10 @@ const Profile = (() => {
     $('#edit-profile-model-surprise-2-slider').addEventListener('input', (e) => applySurpriseIntensityFromSlider(1, e.target.value));
     $('#edit-profile-model-surprise-3-slider').addEventListener('input', (e) => applySurpriseIntensityFromSlider(2, e.target.value));
     $('#edit-profile-model-surprise-reset').addEventListener('click', resetSurpriseSettings);
+    $('#edit-profile-model-surprise-use-slot').addEventListener('click', useEditingSlotAsActive);
+    $$('.surprise-slot-tab').forEach((tab) => {
+      tab.addEventListener('click', () => switchEditingSurpriseSlot(tab.dataset.slot));
+    });
     $('#edit-profile-model-look-toggle').addEventListener('change', (e) => applyLookToggle(e.target.checked));
     $('#edit-profile-model-file').addEventListener('change', (e) => {
       const file = e.target.files && e.target.files[0];
@@ -1443,7 +1549,9 @@ const Profile = (() => {
           selectedBlinkEnabled = true;
           selectedBlinkShapeKeys = '';
           selectedMouthShapeKeys = '';
-          selectedSurpriseEntries = makeEmptySurpriseEntries();
+          selectedSurpriseSlots = makeEmptySurpriseSlots();
+          activeSurpriseSlot = 0;
+          editingSurpriseSlot = 0;
           selectedLookEnabled = true;
           renderModelSection();
           mountModelPreview(selectedModelUrl);

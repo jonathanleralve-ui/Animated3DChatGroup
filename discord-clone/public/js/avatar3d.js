@@ -139,9 +139,24 @@ function createAvatar3D(container, options = {}) {
             }
             return null;
         };
+        const normalizeEntryList = (list) => (Array.isArray(list) ? list : []).map(normalizeEntry).filter(Boolean);
+
+        // Multi-slot format: { slots: [ [entry,entry,entry], ... up to 5 ], active: N }.
+        // Edit Profile lets the user save several different hold-click
+        // expressions and pick which one is actually live; only that one
+        // (slots[active]) is ever used for rendering - the rest just ride
+        // along in storage so they can be switched back to later. Resolving
+        // down to a flat entry list here means every other call site
+        // (findShapeKeys, setSurpriseShapeKeys, mountAvatar3D, etc.) keeps
+        // working with a plain array exactly as before, no changes needed.
+        const resolveSlots = (obj) => {
+            const slots = Array.isArray(obj.slots) ? obj.slots : [];
+            const activeIndex = Number.isInteger(obj.active) && obj.active >= 0 && obj.active < slots.length ? obj.active : 0;
+            return normalizeEntryList(slots[activeIndex]);
+        };
 
         if (Array.isArray(v)) {
-            return v.map(normalizeEntry).filter(Boolean);
+            return normalizeEntryList(v);
         }
         if (typeof v === 'string') {
             const trimmed = v.trim();
@@ -149,7 +164,10 @@ function createAvatar3D(container, options = {}) {
             try {
                 const parsed = JSON.parse(trimmed);
                 if (Array.isArray(parsed)) {
-                    return parsed.map(normalizeEntry).filter(Boolean);
+                    return normalizeEntryList(parsed);
+                }
+                if (parsed && typeof parsed === 'object' && Array.isArray(parsed.slots)) {
+                    return resolveSlots(parsed);
                 }
             } catch (e) {
                 // Fall back to the legacy comma-separated single-entry format.
@@ -157,8 +175,11 @@ function createAvatar3D(container, options = {}) {
             const names = parseShapeKeyNames(trimmed);
             return names.map((name) => ({ name, intensity: 1 }));
         }
+        if (v && typeof v === 'object' && Array.isArray(v.slots)) {
+            return resolveSlots(v);
+        }
         if (v && typeof v === 'object' && Array.isArray(v.entries)) {
-            return v.entries.map(normalizeEntry).filter(Boolean);
+            return normalizeEntryList(v.entries);
         }
         return [];
     }

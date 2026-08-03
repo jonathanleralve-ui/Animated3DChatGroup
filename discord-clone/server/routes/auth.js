@@ -313,8 +313,11 @@ router.patch('/me', auth, async (req, res) => {
 
     if (avatarModelSurpriseShapeKeys !== undefined) {
       const keys = String(avatarModelSurpriseShapeKeys).trim();
-      if (keys.length > 2000) {
-        return res.status(400).json({ error: 'Surprise shape key list is too long (2000 characters max)' });
+      // Now stores up to 5 slots of up to 3 entries each (see profile.js's
+      // serializeSurpriseProfile), so the old 2000-char ceiling from the
+      // single-slot era is bumped up with headroom to match.
+      if (keys.length > 4000) {
+        return res.status(400).json({ error: 'Surprise shape key list is too long (4000 characters max)' });
       }
       updates.push(`avatar_model_surprise_shape_keys = $${idx++}`);
       values.push(keys);

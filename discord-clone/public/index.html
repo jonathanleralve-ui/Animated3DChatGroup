@@ -410,6 +410,17 @@
                   </div>
                   <div class="model-framing-group-body">
                     <div class="model-framing-field">
+                      <label class="model-framing-label">Expression slots <span class="model-framing-value">save up to 5, pick which one plays</span></label>
+                      <div class="surprise-slot-tabs" id="edit-profile-model-surprise-slot-tabs">
+                        <button type="button" class="surprise-slot-tab" data-slot="0">1</button>
+                        <button type="button" class="surprise-slot-tab" data-slot="1">2</button>
+                        <button type="button" class="surprise-slot-tab" data-slot="2">3</button>
+                        <button type="button" class="surprise-slot-tab" data-slot="3">4</button>
+                        <button type="button" class="surprise-slot-tab" data-slot="4">5</button>
+                      </div>
+                      <p class="model-framing-hint" id="edit-profile-model-surprise-slot-hint"></p>
+                    </div>
+                    <div class="model-framing-field">
                       <label class="model-framing-label" for="edit-profile-model-surprise-1-shapekeys-input">Surprise shape key 1 <span class="model-framing-value">(optional)</span></label>
                       <div class="model-framing-row">
                         <input type="text" id="edit-profile-model-surprise-1-shapekeys-input" list="edit-profile-model-surprise-shapekeys-datalist" placeholder="e.g. びっくり" maxlength="200" />
@@ -440,10 +451,11 @@
                         <input type="range" id="edit-profile-model-surprise-3-slider" min="0" max="1" step="0.01" value="1" />
                       </div>
                     </div>
-                    <p class="model-framing-hint">Hold the left mouse button on the preview to trigger a surprised expression. Leave entries blank to auto-detect the standard surprise/shock morphs.</p>
+                    <p class="model-framing-hint">Hold the left mouse button on the preview to test the slot you're editing. Leave entries blank to auto-detect the standard surprise/shock morphs.</p>
                   </div>
                   <div class="model-framing-group-footer">
-                    <button class="btn-secondary btn-small" id="edit-profile-model-surprise-reset" type="button">Reset surprise</button>
+                    <button class="btn-secondary btn-small" id="edit-profile-model-surprise-use-slot" type="button">⭐ Use this slot on hold</button>
+                    <button class="btn-secondary btn-small" id="edit-profile-model-surprise-reset" type="button">Reset this slot</button>
                   </div>
                 </div>
 

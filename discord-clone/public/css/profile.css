@@ -867,6 +867,55 @@
 }
 
 .model-framing-group-footer .btn-small { margin-top: 0; }
+
+/* Surprise-on-hold expression slots: 5 saveable shape-key combos, one of
+   which is marked "active" (star badge) and is the one that actually plays
+   for everyone when this user holds the mouse down. Clicking a tab switches
+   which slot's fields are shown below for editing - editing a slot doesn't
+   change which one is active, that's a separate explicit action via the
+   "Use this slot on hold" button, so tuning a new expression can't
+   accidentally break the one currently in use until it's ready. */
+.surprise-slot-tabs {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.surprise-slot-tab {
+  position: relative;
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: rgba(0, 0, 0, 0.2);
+  color: var(--text-muted, #b5bac1);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.surprise-slot-tab:hover {
+  border-color: var(--group-accent, #5865F2);
+  color: var(--text-normal, #fff);
+}
+
+.surprise-slot-tab.editing {
+  border-color: var(--group-accent, #5865F2);
+  background: rgba(88, 101, 242, 0.22);
+  color: #fff;
+}
+
+.surprise-slot-tab.is-active-slot::after {
+  content: '★';
+  position: absolute;
+  top: -7px;
+  right: -6px;
+  font-size: 11px;
+  line-height: 1;
+  color: #FEE75C;
+  text-shadow: 0 0 2px rgba(0, 0, 0, 0.6);
+}
 .model-framing-group--framing { --group-accent: var(--blurple, #5865F2); }
 .model-framing-group--blink { --group-accent: #EB459E; }
 .model-framing-group--lipsync { --group-accent: var(--green, #57F287); }
@@ -875,6 +924,7 @@
 .model-framing-group--customcursor { --group-accent: #FEA943; }
 .model-framing-group--customcursor { --group-accent: #FEA943; }
 .model-framing-group--clickimages { --group-accent: #9B59B6; }
+.model-framing-group--surprise { --group-accent: #ED4245; }
 
 .click-image-grid {
   display: grid;
