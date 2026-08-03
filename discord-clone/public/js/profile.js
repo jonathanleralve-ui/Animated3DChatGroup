@@ -62,6 +62,11 @@ const Profile = (() => {
   // animation - same idea as selectedBlinkShapeKeys above, but for mouth
   // morphs instead of eye morphs. Empty = auto-detect as before.
   let selectedMouthShapeKeys = '';
+  // Manual overrides for the mouse-hold surprise expression. Each entry can
+  // target a specific morph name and its own intensity (0-1). Empty entries
+  // are ignored. If all three are empty, the built-in surprise/shock keyword
+  // list is used instead.
+  let selectedSurpriseEntries = [{ name: '', intensity: 1 }, { name: '', intensity: 1 }, { name: '', intensity: 1 }];
   // Head/eye gaze tracking toggle. Default matches avatar3d.js's default.
   let selectedLookEnabled = true;
 
@@ -531,6 +536,7 @@ const Profile = (() => {
     $('#edit-profile-model-rotation-slider').value = String(selectedModelRotationY);
     renderLipSyncSliders();
     renderBlinkSliders();
+    renderSurpriseControls();
     $('#edit-profile-model-look-toggle').checked = selectedLookEnabled;
 
     const toggle = $('#edit-profile-3d-toggle');
@@ -583,6 +589,7 @@ const Profile = (() => {
       blinkEnabled: selectedBlinkEnabled,
       blinkShapeKeys: selectedBlinkShapeKeys,
       mouthShapeKeys: selectedMouthShapeKeys,
+      surpriseShapeKeys: selectedSurpriseShapeKeys,
       lookAtCursor: selectedLookEnabled,
       onReady: ({ shapeKeyNames } = {}) => {
         box.classList.remove('model-preview-loading');
@@ -880,6 +887,74 @@ const Profile = (() => {
     }
   }
 
+  function makeEmptySurpriseEntries() {
+    return [{ name: '', intensity: 1 }, { name: '', intensity: 1 }, { name: '', intensity: 1 }];
+  }
+
+  function parseSurpriseEntries(value) {
+    if (!value) return makeEmptySurpriseEntries();
+    if (Array.isArray(value)) {
+      return value.slice(0, 3).map((entry) => {
+        if (typeof entry === 'string') return { name: entry.trim(), intensity: 1 };
+        if (entry && typeof entry === 'object') {
+          const intensity = Number(entry.intensity);
+          return { name: String(entry.name || '').trim(), intensity: Number.isFinite(intensity) ? Math.min(1, Math.max(0, intensity)) : 1 };
+        }
+        return { name: '', intensity: 1 };
+      });
+    }
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+      if (!trimmed) return makeEmptySurpriseEntries();
+      try {
+        const parsed = JSON.parse(trimmed);
+        if (Array.isArray(parsed)) return parseSurpriseEntries(parsed);
+      } catch (e) {
+        // Fall back to the legacy single-name string format.
+      }
+      return [{ name: trimmed, intensity: 1 }, { name: '', intensity: 1 }, { name: '', intensity: 1 }];
+    }
+    return makeEmptySurpriseEntries();
+  }
+
+  function serializeSurpriseEntries(entries) {
+    const normalized = (entries || makeEmptySurpriseEntries()).slice(0, 3).map((entry) => ({
+      name: String(entry?.name || '').trim(),
+      intensity: Number.isFinite(Number(entry?.intensity)) ? Math.min(1, Math.max(0, Number(entry.intensity))) : 1,
+    })).filter((entry) => entry.name);
+    return JSON.stringify(normalized);
+  }
+
+  function renderSurpriseControls() {
+    [0, 1, 2].forEach((index) => {
+      const entry = selectedSurpriseEntries[index] || { name: '', intensity: 1 };
+      const input = $(`#edit-profile-model-surprise-${index + 1}-shapekeys-input`);
+      const slider = $(`#edit-profile-model-surprise-${index + 1}-slider`);
+      const value = $(`#edit-profile-model-surprise-${index + 1}-value`);
+      if (input) input.value = entry.name || '';
+      if (slider) slider.value = String(entry.intensity ?? 1);
+      if (value) value.textContent = `${Math.round((entry.intensity ?? 1) * 100)}%`;
+    });
+  }
+
+  function applySurpriseShapeKeysFromInput(index, value) {
+    selectedSurpriseEntries[index] = { ...(selectedSurpriseEntries[index] || { name: '', intensity: 1 }), name: value };
+    if (modelPreviewInstance) modelPreviewInstance.setSurpriseShapeKeys(serializeSurpriseEntries(selectedSurpriseEntries));
+  }
+
+  function applySurpriseIntensityFromSlider(index, value) {
+    const intensity = Number(value);
+    selectedSurpriseEntries[index] = { ...(selectedSurpriseEntries[index] || { name: '', intensity: 1 }), intensity: Number.isFinite(intensity) ? Math.min(1, Math.max(0, intensity)) : 1 };
+    renderSurpriseControls();
+    if (modelPreviewInstance) modelPreviewInstance.setSurpriseShapeKeys(serializeSurpriseEntries(selectedSurpriseEntries));
+  }
+
+  function resetSurpriseSettings() {
+    selectedSurpriseEntries = makeEmptySurpriseEntries();
+    renderSurpriseControls();
+    if (modelPreviewInstance) modelPreviewInstance.setSurpriseShapeKeys(serializeSurpriseEntries(selectedSurpriseEntries));
+  }
+
   function applyLookToggle(enabled) {
     selectedLookEnabled = enabled;
     if (modelPreviewInstance) modelPreviewInstance.setLookAtCursor(selectedLookEnabled);
@@ -1069,6 +1144,7 @@ const Profile = (() => {
     selectedBlinkEnabled = AppState.me.avatarModelBlinkEnabled ?? true;
     selectedBlinkShapeKeys = AppState.me.avatarModelBlinkShapeKeys ?? '';
     selectedMouthShapeKeys = AppState.me.avatarModelMouthShapeKeys ?? '';
+    selectedSurpriseEntries = parseSurpriseEntries(AppState.me.avatarModelSurpriseShapeKeys ?? '');
     selectedLookEnabled = AppState.me.avatarModelLookEnabled ?? true;
     selectedBannerUrl = AppState.me.bannerUrl || null;
     pendingBannerFile = null;
@@ -1140,6 +1216,7 @@ const Profile = (() => {
         avatarModelBlinkIntensity: selectedBlinkIntensity, avatarModelBlinkIntervalMin: selectedBlinkIntervalMin, avatarModelBlinkIntervalMax: selectedBlinkIntervalMax, avatarModelBlinkEnabled: selectedBlinkEnabled,
         avatarModelBlinkShapeKeys: selectedBlinkShapeKeys,
         avatarModelMouthShapeKeys: selectedMouthShapeKeys,
+        avatarModelSurpriseShapeKeys: serializeSurpriseEntries(selectedSurpriseEntries),
         avatarModelLookEnabled: selectedLookEnabled,
         bannerUrl, bannerZoom: selectedBannerZoom, bannerOffsetX: selectedBannerOffsetX, bannerOffsetY: selectedBannerOffsetY,
         avatarBorderStyle: selectedAvatarBorderStyle, avatarBorderColor: selectedAvatarBorderColor,
@@ -1298,6 +1375,7 @@ const Profile = (() => {
       selectedBlinkEnabled = true;
       selectedBlinkShapeKeys = '';
       selectedMouthShapeKeys = '';
+      selectedSurpriseEntries = makeEmptySurpriseEntries();
       selectedLookEnabled = true;
       renderModelSection();
       disposeModelPreview();
@@ -1317,6 +1395,13 @@ const Profile = (() => {
     $('#edit-profile-model-blink-max-slider').addEventListener('input', (e) => applyBlinkMaxFromSlider(e.target.value));
     $('#edit-profile-model-blink-shapekeys-input').addEventListener('input', (e) => applyBlinkShapeKeysFromInput(e.target.value));
     $('#edit-profile-model-blink-reset').addEventListener('click', resetBlinkSettings);
+    $('#edit-profile-model-surprise-1-shapekeys-input').addEventListener('input', (e) => applySurpriseShapeKeysFromInput(0, e.target.value));
+    $('#edit-profile-model-surprise-2-shapekeys-input').addEventListener('input', (e) => applySurpriseShapeKeysFromInput(1, e.target.value));
+    $('#edit-profile-model-surprise-3-shapekeys-input').addEventListener('input', (e) => applySurpriseShapeKeysFromInput(2, e.target.value));
+    $('#edit-profile-model-surprise-1-slider').addEventListener('input', (e) => applySurpriseIntensityFromSlider(0, e.target.value));
+    $('#edit-profile-model-surprise-2-slider').addEventListener('input', (e) => applySurpriseIntensityFromSlider(1, e.target.value));
+    $('#edit-profile-model-surprise-3-slider').addEventListener('input', (e) => applySurpriseIntensityFromSlider(2, e.target.value));
+    $('#edit-profile-model-surprise-reset').addEventListener('click', resetSurpriseSettings);
     $('#edit-profile-model-look-toggle').addEventListener('change', (e) => applyLookToggle(e.target.checked));
     $('#edit-profile-model-file').addEventListener('change', (e) => {
       const file = e.target.files && e.target.files[0];
@@ -1344,6 +1429,7 @@ const Profile = (() => {
           selectedBlinkEnabled = true;
           selectedBlinkShapeKeys = '';
           selectedMouthShapeKeys = '';
+          selectedSurpriseEntries = makeEmptySurpriseEntries();
           selectedLookEnabled = true;
           renderModelSection();
           mountModelPreview(selectedModelUrl);

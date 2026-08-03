@@ -45,6 +45,7 @@ function publicUser(u) {
     avatarModelBlinkEnabled: u.avatar_model_blink_enabled,
     avatarModelBlinkShapeKeys: u.avatar_model_blink_shape_keys,
     avatarModelMouthShapeKeys: u.avatar_model_mouth_shape_keys,
+    avatarModelSurpriseShapeKeys: u.avatar_model_surprise_shape_keys,
     avatarModelLookEnabled: u.avatar_model_look_enabled,
     bannerUrl: u.banner_url,
     bannerZoom: u.banner_zoom,
@@ -141,6 +142,7 @@ router.patch('/me', auth, async (req, res) => {
       avatarModelBlinkIntensity, avatarModelBlinkIntervalMin, avatarModelBlinkIntervalMax, avatarModelBlinkEnabled,
       avatarModelBlinkShapeKeys,
       avatarModelMouthShapeKeys,
+      avatarModelSurpriseShapeKeys,
       avatarModelLookEnabled,
       bannerUrl, bannerZoom, bannerOffsetX, bannerOffsetY,
       avatarBorderStyle, avatarBorderColor, profileAccentColor,
@@ -306,6 +308,15 @@ router.patch('/me', auth, async (req, res) => {
         return res.status(400).json({ error: 'Mouth shape key list is too long (200 characters max)' });
       }
       updates.push(`avatar_model_mouth_shape_keys = $${idx++}`);
+      values.push(keys);
+    }
+
+    if (avatarModelSurpriseShapeKeys !== undefined) {
+      const keys = String(avatarModelSurpriseShapeKeys).trim();
+      if (keys.length > 2000) {
+        return res.status(400).json({ error: 'Surprise shape key list is too long (2000 characters max)' });
+      }
+      updates.push(`avatar_model_surprise_shape_keys = $${idx++}`);
       values.push(keys);
     }
 

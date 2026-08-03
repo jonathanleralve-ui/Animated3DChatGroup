@@ -99,6 +99,11 @@ function createAvatar3D(container, options = {}) {
         // Profile instead of blinking never triggering. Accepts either a
         // comma-separated string (as saved to the profile) or an array.
         blinkShapeKeys: initialBlinkShapeKeys = '',
+        // Optional manual override for which shape key(s) drive the
+        // mouse-hold surprise expression. Empty means no explicit override,
+        // which falls back to the built-in name-guessing in findShapeKeys()
+        // for the same reason as blinkShapeKeys above.
+        surpriseShapeKeys: initialSurpriseShapeKeys = '',
         // Same idea as blinkShapeKeys above, but for which shape key(s)
         // drive the mouth-opening lip-sync animation. By default (empty)
         // the built-in name-guessing in findShapeKeys() is used ('あ',
@@ -115,8 +120,52 @@ function createAvatar3D(container, options = {}) {
         if (typeof v === 'string') return v.split(',').map((s) => s.trim()).filter(Boolean);
         return [];
     }
+
+    function parseSurpriseShapeKeySettings(v) {
+        const normalizeEntry = (entry) => {
+            if (!entry) return null;
+            if (typeof entry === 'string') {
+                const name = entry.trim();
+                return name ? { name, intensity: 1 } : null;
+            }
+            if (typeof entry === 'object') {
+                const name = String(entry.name || '').trim();
+                if (!name) return null;
+                const intensity = Number(entry.intensity);
+                return {
+                    name,
+                    intensity: Number.isFinite(intensity) ? Math.min(1, Math.max(0, intensity)) : 1,
+                };
+            }
+            return null;
+        };
+
+        if (Array.isArray(v)) {
+            return v.map(normalizeEntry).filter(Boolean);
+        }
+        if (typeof v === 'string') {
+            const trimmed = v.trim();
+            if (!trimmed) return [];
+            try {
+                const parsed = JSON.parse(trimmed);
+                if (Array.isArray(parsed)) {
+                    return parsed.map(normalizeEntry).filter(Boolean);
+                }
+            } catch (e) {
+                // Fall back to the legacy comma-separated single-entry format.
+            }
+            const names = parseShapeKeyNames(trimmed);
+            return names.map((name) => ({ name, intensity: 1 }));
+        }
+        if (v && typeof v === 'object' && Array.isArray(v.entries)) {
+            return v.entries.map(normalizeEntry).filter(Boolean);
+        }
+        return [];
+    }
+
     let blinkShapeKeyNames = parseShapeKeyNames(initialBlinkShapeKeys);
     let mouthShapeKeyNames = parseShapeKeyNames(initialMouthShapeKeys);
+    let surpriseShapeKeySettings = parseSurpriseShapeKeySettings(initialSurpriseShapeKeys);
 
     // Same clamp ranges as the server (server/routes/auth.js).
     const MOUTH_INTENSITY_MIN = 0, MOUTH_INTENSITY_MAX = 1;
@@ -183,7 +232,10 @@ function createAvatar3D(container, options = {}) {
     let model = null;
     let mouthKeys = [];
     let blinkKeys = [];
+    let surpriseKeyGroups = [];
     let targetMouth = 0;
+    let surpriseAmount = 0;
+    let mouseIsHeld = false;
     let isBlinking = false;
     let blinkTimer = 0;
     let isBlinkEnabled = initialBlinkEnabled;
@@ -312,16 +364,20 @@ function createAvatar3D(container, options = {}) {
         scene.add(gridHelper);
     }
 
-    function findShapeKeys(mesh, customBlinkNames, customMouthNames) {
+    function findShapeKeys(mesh, customBlinkNames, customMouthNames, customSurpriseEntries) {
         const defaultMouthNames = ['あ', 'い', 'う', 'え', 'お', 'a', 'i', 'u', 'e', 'o', 'mouth', 'open', '口', '開'];
         const defaultBlinkNames = ['blink', 'eye', '目', 'まばたき', 'closeeye', 'eyelid', 'wink'];
+        const defaultSurpriseNames = ['surprise', 'surprised', 'shock', 'shocked', 'wow', 'びっくり', '驚', 'open', '目', '口'];
         // If the user typed in specific shape key name(s) to use, match only
         // those (still a case-insensitive "contains" match, same as the
         // default list) instead of guessing from the built-in name list.
         const blinkNames = (customBlinkNames && customBlinkNames.length) ? customBlinkNames : defaultBlinkNames;
         const mouthNames = (customMouthNames && customMouthNames.length) ? customMouthNames : defaultMouthNames;
+        const surpriseNames = (customSurpriseEntries && customSurpriseEntries.length)
+            ? customSurpriseEntries.map((entry) => entry.name).filter(Boolean)
+            : defaultSurpriseNames;
 
-        const foundMouth = [], foundBlink = [];
+        const foundMouth = [], foundBlink = [], foundSurprise = [];
 
         mesh.traverse((child) => {
             if (child.isMesh && child.morphTargetDictionary) {
@@ -335,11 +391,14 @@ function createAvatar3D(container, options = {}) {
                     if (blinkNames.some((n) => lower.includes(n.toLowerCase()))) {
                         foundBlink.push({ index: dict[key], inf });
                     }
+                    if (surpriseNames.some((n) => lower.includes(n.toLowerCase()))) {
+                        foundSurprise.push({ index: dict[key], inf });
+                    }
                 });
             }
         });
 
-        return { mouthKeys: foundMouth, blinkKeys: foundBlink };
+        return { mouthKeys: foundMouth, blinkKeys: foundBlink, surpriseKeys: foundSurprise };
     }
 
     // Every shape key name found on the loaded model, deduped, in whatever
@@ -504,6 +563,14 @@ function createAvatar3D(container, options = {}) {
         blinkKeys.forEach((k) => { k.inf[k.index] = Math.max(0, Math.min(1, limited)); });
     }
 
+    function applySurprise(amount) {
+        surpriseKeyGroups.forEach((group) => {
+            group.keys.forEach((k) => {
+                k.inf[k.index] = Math.max(0, Math.min(1, amount * group.intensity));
+            });
+        });
+    }
+
     // In avatar3d.js, modify the loadModel function
     function loadModel() {
         const loader = new MMDLoader();
@@ -596,9 +663,19 @@ function createAvatar3D(container, options = {}) {
                 
                 scene.add(model);
                 
-                const result = findShapeKeys(mesh, blinkShapeKeyNames, mouthShapeKeyNames);
+                const result = findShapeKeys(mesh, blinkShapeKeyNames, mouthShapeKeyNames, surpriseShapeKeySettings);
                 mouthKeys = result.mouthKeys;
                 blinkKeys = result.blinkKeys;
+                surpriseKeyGroups = surpriseShapeKeySettings.map((entry) => {
+                    const keys = [];
+                    result.surpriseKeys.forEach((match) => {
+                        if (match.name === entry.name) keys.push(match);
+                    });
+                    return { intensity: entry.intensity, keys };
+                }).filter((group) => group.keys.length > 0);
+                if (surpriseKeyGroups.length === 0 && result.surpriseKeys.length > 0) {
+                    surpriseKeyGroups = [{ intensity: 1, keys: result.surpriseKeys }];
+                }
 
                 const bones = findBones(mesh);
                 headBone = bones.head; neckBone = bones.neck; eyeLBone = bones.eyeL; eyeRBone = bones.eyeR; upperBodyBone = bones.upperBody;
@@ -693,6 +770,14 @@ function createAvatar3D(container, options = {}) {
 
     let pendingVoiceLevel = 0;
 
+    function updateSurprise(delta) {
+        if (!isReady || surpriseKeyGroups.length === 0) return;
+        const target = mouseIsHeld ? 1 : 0;
+        const ease = 1 - Math.pow(0.0005, delta);
+        surpriseAmount += (target - surpriseAmount) * ease;
+        applySurprise(surpriseAmount);
+    }
+
     function loop() {
         if (disposed) return;
         rafId = requestAnimationFrame(loop);
@@ -704,6 +789,7 @@ function createAvatar3D(container, options = {}) {
         if (isReady) {
             updateBlink(delta);
             updateMouth(pendingVoiceLevel, delta);
+            updateSurprise(delta);
             updateGaze(delta);
             if (autoRotateEnabled && model && CONFIG.autoRotateSpeed) {
                 model.rotation.y = Math.sin(now / 4000) * 0.35;
@@ -789,8 +875,30 @@ function createAvatar3D(container, options = {}) {
         setMouthShapeKeys(namesInput) {
             mouthShapeKeyNames = parseShapeKeyNames(namesInput);
             mouthKeys.forEach((k) => { k.inf[k.index] = 0; });
-            mouthKeys = model ? findShapeKeys(model, blinkShapeKeyNames, mouthShapeKeyNames).mouthKeys : [];
+            mouthKeys = model ? findShapeKeys(model, blinkShapeKeyNames, mouthShapeKeyNames, surpriseShapeKeySettings).mouthKeys : [];
             targetMouth = 0;
+        },
+        getSurpriseShapeKeys() {
+            return surpriseShapeKeySettings.slice();
+        },
+        setSurpriseShapeKeys(entriesInput) {
+            surpriseShapeKeySettings = parseSurpriseShapeKeySettings(entriesInput);
+            surpriseKeyGroups = [];
+            if (model && surpriseShapeKeySettings.length > 0) {
+                const result = findShapeKeys(model, blinkShapeKeyNames, mouthShapeKeyNames, surpriseShapeKeySettings);
+                surpriseKeyGroups = surpriseShapeKeySettings.map((entry) => ({
+                    intensity: entry.intensity,
+                    keys: result.surpriseKeys.filter((match) => match.name === entry.name)
+                })).filter((group) => group.keys.length > 0);
+                if (surpriseKeyGroups.length === 0 && result.surpriseKeys.length > 0) {
+                    surpriseKeyGroups = [{ intensity: 1, keys: result.surpriseKeys }];
+                }
+            }
+            surpriseAmount = 0;
+            applySurprise(0);
+        },
+        setMouseHoldSurprise(held) {
+            mouseIsHeld = !!held;
         },
         // Every shape key name the currently-loaded model actually has,
         // so Edit Profile can show the user something to pick from rather
@@ -838,6 +946,9 @@ function createAvatar3D(container, options = {}) {
             disposed = true;
             if (rafId) cancelAnimationFrame(rafId);
             if (controls) controls.dispose();
+            container.removeEventListener('pointerdown', handlePointerDown);
+            container.removeEventListener('pointerup', handlePointerUp);
+            container.removeEventListener('pointerleave', handlePointerUp);
             if (renderer) {
                 renderer.dispose();
                 if (renderer.domElement && renderer.domElement.parentNode) {
@@ -846,6 +957,12 @@ function createAvatar3D(container, options = {}) {
             }
         }
     };
+
+    const handlePointerDown = () => { mouseIsHeld = true; };
+    const handlePointerUp = () => { mouseIsHeld = false; };
+    container.addEventListener('pointerdown', handlePointerDown);
+    container.addEventListener('pointerup', handlePointerUp);
+    container.addEventListener('pointerleave', handlePointerUp);
 
     initScene();
     loadModel();
