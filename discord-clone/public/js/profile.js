@@ -589,7 +589,7 @@ const Profile = (() => {
       blinkEnabled: selectedBlinkEnabled,
       blinkShapeKeys: selectedBlinkShapeKeys,
       mouthShapeKeys: selectedMouthShapeKeys,
-      surpriseShapeKeys: selectedSurpriseShapeKeys,
+      surpriseShapeKeys: serializeSurpriseEntries(selectedSurpriseEntries),
       lookAtCursor: selectedLookEnabled,
       onReady: ({ shapeKeyNames } = {}) => {
         box.classList.remove('model-preview-loading');
