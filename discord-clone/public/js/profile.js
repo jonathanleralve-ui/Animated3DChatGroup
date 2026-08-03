@@ -684,6 +684,8 @@ const Profile = (() => {
     selectedVoiceMax = 59;
     selectedMouthShapeKeys = '';
     renderLipSyncSliders();
+    const input = $('#edit-profile-model-mouth-shapekeys-input');
+    if (input) input.value = '';
     if (modelPreviewInstance) {
       modelPreviewInstance.setLipSyncSettings({ mouthIntensity: selectedMouthIntensity, voiceStart: selectedVoiceStart, voiceMax: selectedVoiceMax });
       modelPreviewInstance.setMouthShapeKeys(selectedMouthShapeKeys);
@@ -806,15 +808,6 @@ const Profile = (() => {
     return MOUTH_RELATED_KEYWORDS.some((kw) => lower.includes(kw.toLowerCase()));
   }
 
-  // Lists whatever shape keys the currently-loaded model actually has as
-  // <option>s in a <datalist>, so the blink/mouth shape-key fields can
-  // offer autocomplete instead of the user having to guess an exact name
-  // (MMD models frequently use Japanese shape key names). Each field is
-  // filtered down to its own related morphs only, so the other field's
-  // morphs don't show up as noise. The fields themselves still need the
-  // real (Japanese) name typed in to match the model, so `value` stays
-  // untranslated - only the visible `label` gets an English hint where
-  // one is known.
   function renderShapeKeyHint(names) {
     const datalist = $('#edit-profile-model-shapekeys-datalist');
     const mouthDatalist = $('#edit-profile-model-mouth-shapekeys-datalist');
