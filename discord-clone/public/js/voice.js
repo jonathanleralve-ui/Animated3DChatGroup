@@ -4,6 +4,11 @@ const VoiceChat = (() => {
   const SPEAKING_THRESHOLD = 0.02; // RMS volume above this counts as "talking"
   const SPEAKING_HOLD_MS = 350;    // keep ring lit briefly between words
 
+  // Custom voice command feedback sounds. Place your files under public/audio
+  // and update these paths to match the file names you want to use.
+  const VOICE_COMMAND_SUCCESS_SOUND = '/audio/voice-success.mp3';
+  const VOICE_COMMAND_FAIL_SOUND = '/audio/voice-fail.mp3';
+
   let socket = null;
   let me = null;
 
@@ -286,42 +291,25 @@ const VoiceChat = (() => {
     } catch (err) { /* audio not available - reaction still shows visually */ }
   }
 
-  function playSuccessSound() {
+  function playCustomFeedbackSound(path) {
+    if (!path) return;
     try {
-      const AudioCtx = window.AudioContext || window.webkitAudioContext;
-      const ctx = new AudioCtx();
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type = 'triangle';
-      osc.frequency.setValueAtTime(880, ctx.currentTime);
-      osc.frequency.exponentialRampToValueAtTime(1320, ctx.currentTime + 0.12);
-      gain.gain.setValueAtTime(0.18, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.18);
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.start();
-      osc.stop(ctx.currentTime + 0.18);
-      osc.onended = () => ctx.close();
-    } catch (err) { /* ignore */ }
+      const audioEl = new Audio(path);
+      audioEl.volume = 0.55;
+      audioEl.play().catch(() => {
+        console.warn('[VoiceChat] custom feedback sound failed to play:', path);
+      });
+    } catch (err) {
+      console.warn('[VoiceChat] failed to create Audio for feedback sound:', err);
+    }
+  }
+
+  function playSuccessSound() {
+    playCustomFeedbackSound(VOICE_COMMAND_SUCCESS_SOUND);
   }
 
   function playFailSound() {
-    try {
-      const AudioCtx = window.AudioContext || window.webkitAudioContext;
-      const ctx = new AudioCtx();
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type = 'square';
-      osc.frequency.setValueAtTime(220, ctx.currentTime);
-      osc.frequency.exponentialRampToValueAtTime(120, ctx.currentTime + 0.18);
-      gain.gain.setValueAtTime(0.16, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.18);
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.start();
-      osc.stop(ctx.currentTime + 0.18);
-      osc.onended = () => ctx.close();
-    } catch (err) { /* ignore */ }
+    playCustomFeedbackSound(VOICE_COMMAND_FAIL_SOUND);
   }
 
   // Plays a member-uploaded sound clip for a triggered voice command. Falls
