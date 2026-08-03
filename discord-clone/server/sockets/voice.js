@@ -120,7 +120,7 @@ function registerVoiceHandlers(io, socket, db) {
         leaveVoiceChannel(io, socket, socket.currentVoiceChannel);
       }
 
-      const userResult = await db.query('SELECT display_name, avatar_color, avatar_url, name_color, avatar_model_url, avatar_mode, avatar_model_zoom, avatar_model_offset_x, avatar_model_offset_y, avatar_model_rotation_y, avatar_model_mouth_intensity, avatar_model_voice_start, avatar_model_voice_max, avatar_model_blink_intensity, avatar_model_blink_interval_min, avatar_model_blink_interval_max, avatar_model_blink_enabled, avatar_model_blink_shape_keys, avatar_model_mouth_shape_keys, avatar_model_look_enabled FROM users WHERE id = $1', [uid]);
+      const userResult = await db.query('SELECT display_name, avatar_color, avatar_url, name_color, avatar_model_url, avatar_mode, avatar_model_zoom, avatar_model_offset_x, avatar_model_offset_y, avatar_model_rotation_y, avatar_model_mouth_intensity, avatar_model_voice_start, avatar_model_voice_max, avatar_model_blink_intensity, avatar_model_blink_interval_min, avatar_model_blink_interval_max, avatar_model_blink_enabled, avatar_model_blink_shape_keys, avatar_model_mouth_shape_keys, avatar_model_surprise_shape_keys, avatar_model_look_enabled FROM users WHERE id = $1', [uid]);
       const user = userResult.rows[0];
 
       // Tell the joining client who is already in the channel, so it can initiate connections to each
