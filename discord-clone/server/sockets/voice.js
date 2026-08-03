@@ -12,6 +12,11 @@ const voiceRooms = new Map();
 // the rest of the call state. strokeId is always `${socketId}-...`, which
 // doubles as an ownership check for undo (see voice:draw-undo below).
 const voiceDraw = new Map();
+// channelId -> { videoId, title }
+// Keeps the current YouTube playback info for the voice channel so late
+// joiners can catch up to the live stream without waiting for another
+// participant to trigger it again.
+const voiceCurrentSong = new Map();
 const MAX_STROKES_PER_CHANNEL = 400; // oldest strokes drop off past this to bound memory
 
 function drawState(channelId) {
@@ -82,6 +87,7 @@ function leaveVoiceChannel(io, socket, channelId) {
   if (room.size === 0) {
     voiceRooms.delete(channelId);
     voiceDraw.delete(channelId);
+    voiceCurrentSong.delete(channelId);
   }
 }
 
@@ -120,6 +126,12 @@ function registerVoiceHandlers(io, socket, db) {
       socket.emit('voice:existing-peers', { peers: voicePeerList(cid) });
       // ...and hand them whatever's already been drawn on this channel's whiteboard
       socket.emit('voice:draw-state', { strokes: getDrawStrokes(cid) });
+      // If the channel is already playing a YouTube stream, make sure the late
+      // joiner starts the same video too.
+      const currentSong = voiceCurrentSong.get(cid);
+      if (currentSong) {
+        socket.emit('voice:current-song', currentSong);
+      }
 
       const info = {
         userId: uid, displayName: user.display_name, avatarColor: user.avatar_color, avatarUrl: user.avatar_url,
@@ -216,12 +228,14 @@ function registerVoiceHandlers(io, socket, db) {
     if (cid !== socket.currentVoiceChannel) return;
     if (typeof videoId !== 'string' || !YOUTUBE_ID_RE.test(videoId)) return;
     const cleanTitle = typeof title === 'string' ? title.slice(0, 200) : '';
+    voiceCurrentSong.set(cid, { videoId, title: cleanTitle });
     io.to(`voice:${cid}`).emit('voice:play-song', { socketId: socket.id, videoId, title: cleanTitle });
   });
 
   socket.on('voice:stop-song', ({ channelId }) => {
     const cid = Number(channelId);
     if (cid !== socket.currentVoiceChannel) return;
+    voiceCurrentSong.delete(cid);
     io.to(`voice:${cid}`).emit('voice:stop-song', { socketId: socket.id });
   });
 

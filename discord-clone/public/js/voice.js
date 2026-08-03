@@ -63,6 +63,11 @@ const VoiceChat = (() => {
       renderParticipants();
     });
 
+    socket.on('voice:current-song', ({ videoId, title }) => {
+      if (typeof VoiceYoutube === 'undefined' || !videoId) return;
+      VoiceYoutube.play(videoId, title);
+    });
+
     socket.on('voice:peer-screen-update', ({ socketId, sharing }) => {
       if (peers[socketId]) peers[socketId].info.sharing = sharing;
       if (!sharing) removeRemoteVideoTile(socketId);
