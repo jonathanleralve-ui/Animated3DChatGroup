@@ -161,6 +161,13 @@ function createAvatar3D(container, options = {}) {
         neckFollow: 0.4,
         eyeYawMax: 0.5,
         eyePitchMax: 0.3,
+        idleHeadYawAmplitude: 0.04,
+        idleHeadPitchAmplitude: 0.025,
+        idleEyeYawAmplitude: 0.03,
+        idleEyePitchAmplitude: 0.015,
+        idleBodySwayAmplitude: 0.02,
+        idleBodyBobAmplitude: 0.015,
+        idleBodyTiltAmplitude: 0.03,
     };
 
     // Same clamp range as the server (server/routes/auth.js) so what the
@@ -184,6 +191,7 @@ function createAvatar3D(container, options = {}) {
     let disposed = false;
     let rafId = null;
     let lastTime = performance.now();
+    let idleTime = 0;
 
     // Gaze tracking state. Bones are looked up once after the model loads
     // (null if the model doesn't have a recognizable one - tracking just
@@ -193,9 +201,9 @@ function createAvatar3D(container, options = {}) {
     // values are lerped toward the cursor-derived target each frame so the
     // motion is a smooth turn rather than snapping.
     let isLookAtCursorEnabled = initialLookAtCursor;
-    let headBone = null, neckBone = null, eyeLBone = null, eyeRBone = null;
-    let headBind = null, neckBind = null, eyeLBind = null, eyeRBind = null;
-    let currentHeadYaw = 0, currentHeadPitch = 0, currentEyeYaw = 0, currentEyePitch = 0;
+    let headBone = null, neckBone = null, eyeLBone = null, eyeRBone = null, upperBodyBone = null;
+    let headBind = null, neckBind = null, eyeLBind = null, eyeRBind = null, upperBodyBind = null;
+    let currentHeadYaw = 0, currentHeadPitch = 0, currentEyeYaw = 0, currentEyePitch = 0, currentUpperBodyYaw = 0, currentUpperBodyPitch = 0;
     // When set (via setRemoteGaze), overrides the local-cursor computation
     // below - used for other participants' voice tiles, which display
     // where *that person* is looking rather than tracking this browser's
@@ -362,22 +370,24 @@ function createAvatar3D(container, options = {}) {
         const neckNames = ['neck', '首'];
         const eyeLNames = ['eye_l', 'eyel', 'lefteye', 'l_eye', '左目'];
         const eyeRNames = ['eye_r', 'eyer', 'righteye', 'r_eye', '右目'];
+        const upperBodyNames = ['spine', 'chest', 'torso', 'body', 'upper', '胸', '上半身', '上身', '躯干'];
 
         let skeleton = null;
         mesh.traverse((child) => {
             if (!skeleton && child.isSkinnedMesh && child.skeleton) skeleton = child.skeleton;
         });
-        if (!skeleton) return { head: null, neck: null, eyeL: null, eyeR: null };
+        if (!skeleton) return { head: null, neck: null, eyeL: null, eyeR: null, upperBody: null };
 
-        let head = null, neck = null, eyeL = null, eyeR = null;
+        let head = null, neck = null, eyeL = null, eyeR = null, upperBody = null;
         skeleton.bones.forEach((bone) => {
             const lower = (bone.name || '').toLowerCase();
             if (!head && headNames.some((n) => lower.includes(n.toLowerCase()))) head = bone;
             if (!neck && neckNames.some((n) => lower.includes(n.toLowerCase()))) neck = bone;
             if (!eyeL && eyeLNames.some((n) => lower.includes(n.toLowerCase()))) eyeL = bone;
             if (!eyeR && eyeRNames.some((n) => lower.includes(n.toLowerCase()))) eyeR = bone;
+            if (!upperBody && upperBodyNames.some((n) => lower.includes(n.toLowerCase()))) upperBody = bone;
         });
-        return { head, neck, eyeL, eyeR };
+        return { head, neck, eyeL, eyeR, upperBody };
     }
 
     // Turns whichever of head/neck/eye bones were found toward wherever the
@@ -386,17 +396,46 @@ function createAvatar3D(container, options = {}) {
     // toward a cursor on the opposite side just like it would in real life.
     // No-ops (and settles back toward the bind pose) if tracking is off or
     // the model has none of these bones.
+    function updateIdleMotion(delta) {
+        if (!model) return;
+
+        idleTime += delta;
+        const idleHeadYaw = Math.sin(idleTime * 0.8) * CONFIG.idleHeadYawAmplitude;
+        const idleHeadPitch = Math.sin(idleTime * 1.2 + 0.4) * CONFIG.idleHeadPitchAmplitude;
+        const idleEyeYaw = Math.sin(idleTime * 1.1 + 0.3) * CONFIG.idleEyeYawAmplitude;
+        const idleEyePitch = Math.sin(idleTime * 0.9 + 0.8) * CONFIG.idleEyePitchAmplitude;
+        const idleUpperBodyYaw = Math.sin(idleTime * 0.65 + 0.25) * CONFIG.idleBodySwayAmplitude;
+        const idleUpperBodyPitch = Math.sin(idleTime * 0.95 + 0.6) * CONFIG.idleBodyTiltAmplitude;
+
+        return {
+            idleHeadYaw,
+            idleHeadPitch,
+            idleEyeYaw,
+            idleEyePitch,
+            idleUpperBodyYaw,
+            idleUpperBodyPitch,
+        };
+    }
+
     function updateGaze(delta) {
         if (!headBone && !neckBone && !eyeLBone && !eyeRBone) return;
 
         let targetHeadYaw = 0, targetHeadPitch = 0, targetEyeYaw = 0, targetEyePitch = 0;
+        const idleMotion = updateIdleMotion(delta);
+        const idleHeadYaw = idleMotion ? idleMotion.idleHeadYaw : 0;
+        const idleHeadPitch = idleMotion ? idleMotion.idleHeadPitch : 0;
+        const idleEyeYaw = idleMotion ? idleMotion.idleEyeYaw : 0;
+        const idleEyePitch = idleMotion ? idleMotion.idleEyePitch : 0;
+        const idleUpperBodyYaw = idleMotion ? idleMotion.idleUpperBodyYaw : 0;
+        const idleUpperBodyPitch = idleMotion ? idleMotion.idleUpperBodyPitch : 0;
+
         if (remoteGazeDX !== null) {
             // Someone else's tile: use the direction they broadcast instead
             // of this browser's own cursor.
-            targetHeadYaw = remoteGazeDX * CONFIG.headYawMax;
-            targetHeadPitch = remoteGazeDY * CONFIG.headPitchMax;
-            targetEyeYaw = remoteGazeDX * CONFIG.eyeYawMax;
-            targetEyePitch = remoteGazeDY * CONFIG.eyePitchMax;
+            targetHeadYaw = remoteGazeDX * CONFIG.headYawMax + idleHeadYaw * 0.35;
+            targetHeadPitch = remoteGazeDY * CONFIG.headPitchMax + idleHeadPitch * 0.35;
+            targetEyeYaw = remoteGazeDX * CONFIG.eyeYawMax + idleEyeYaw * 0.35;
+            targetEyePitch = remoteGazeDY * CONFIG.eyePitchMax + idleEyePitch * 0.35;
         } else if (isLookAtCursorEnabled && !disposed) {
             const rect = container.getBoundingClientRect();
             const cx = rect.left + rect.width / 2;
@@ -408,13 +447,17 @@ function createAvatar3D(container, options = {}) {
             lastCursorDX = dx;
             lastCursorDY = dy;
 
-            targetHeadYaw = dx * CONFIG.headYawMax;
-            targetHeadPitch = dy * CONFIG.headPitchMax;
-            targetEyeYaw = dx * CONFIG.eyeYawMax;
-            targetEyePitch = dy * CONFIG.eyePitchMax;
+            targetHeadYaw = dx * CONFIG.headYawMax + idleHeadYaw * 0.2;
+            targetHeadPitch = dy * CONFIG.headPitchMax + idleHeadPitch * 0.2;
+            targetEyeYaw = dx * CONFIG.eyeYawMax + idleEyeYaw * 0.2;
+            targetEyePitch = dy * CONFIG.eyePitchMax + idleEyePitch * 0.2;
         } else {
             lastCursorDX = 0;
             lastCursorDY = 0;
+            targetHeadYaw = idleHeadYaw;
+            targetHeadPitch = idleHeadPitch;
+            targetEyeYaw = idleEyeYaw;
+            targetEyePitch = idleEyePitch;
         }
         // else: targets stay 0, so the lerp below eases back to bind pose.
 
@@ -441,6 +484,13 @@ function createAvatar3D(container, options = {}) {
         }
         if (eyeRBone && eyeRBind) {
             eyeRBone.rotation.set(eyeRBind.x + currentEyePitch, eyeRBind.y + currentEyeYaw, eyeRBind.z);
+        }
+        if (upperBodyBone && upperBodyBind) {
+            upperBodyBone.rotation.set(
+                upperBodyBind.x + idleUpperBodyPitch * 0.4 + currentHeadPitch * 0.1,
+                upperBodyBind.y + idleUpperBodyYaw * 0.4 + currentHeadYaw * 0.1,
+                upperBodyBind.z
+            );
         }
     }
 
@@ -551,11 +601,12 @@ function createAvatar3D(container, options = {}) {
                 blinkKeys = result.blinkKeys;
 
                 const bones = findBones(mesh);
-                headBone = bones.head; neckBone = bones.neck; eyeLBone = bones.eyeL; eyeRBone = bones.eyeR;
+                headBone = bones.head; neckBone = bones.neck; eyeLBone = bones.eyeL; eyeRBone = bones.eyeR; upperBodyBone = bones.upperBody;
                 headBind = headBone ? headBone.rotation.clone() : null;
                 neckBind = neckBone ? neckBone.rotation.clone() : null;
                 eyeLBind = eyeLBone ? eyeLBone.rotation.clone() : null;
                 eyeRBind = eyeRBone ? eyeRBone.rotation.clone() : null;
+                upperBodyBind = upperBodyBone ? upperBodyBone.rotation.clone() : null;
 
                 applyMouth(0);
                 isReady = true;
