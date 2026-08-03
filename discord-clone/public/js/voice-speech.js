@@ -83,6 +83,7 @@ const VoiceSpeech = (() => {
   let listening = false; // intent flag - distinguishes "stopped on purpose" from onend's auto-restart
   let onTrigger = null;
   let onPlaySong = null;
+  let onSongControl = null;
   let lastTriggerAt = 0;
   let lastPlayAt = 0;
 
@@ -103,6 +104,18 @@ const VoiceSpeech = (() => {
     }
   }
 
+  function checkForSongControl(transcript, isFinal) {
+    if (!isFinal || !onSongControl) return false;
+    const heard = transcript.toLowerCase();
+    const match = heard.match(/\b(pause|continue|resume)\s+song\b/i);
+    if (!match) return false;
+    const action = match[1].toLowerCase();
+    if (action === 'pause') onSongControl('pause');
+    else if (action === 'continue' || action === 'resume') onSongControl('resume');
+    console.log('[VoiceSpeech] song control matched:', action);
+    return true;
+  }
+
   function checkForPlayCommand(transcript, allowInterim = false) {
     const now = Date.now();
     if (now - lastPlayAt < PLAY_COOLDOWN_MS) return;
@@ -121,10 +134,11 @@ const VoiceSpeech = (() => {
   // triggerCallback(phrase, soundUrl) is called whenever a trigger word is
   // heard. playCallback(query) is called whenever "play <something>" is
   // heard - query is the raw, uncleaned text said after "play".
-  function start(triggerCallback, playCallback) {
+  function start(triggerCallback, playCallback, songControlCallback) {
     if (!supported() || listening) return;
     onTrigger = triggerCallback;
     onPlaySong = playCallback;
+    onSongControl = songControlCallback;
     listening = true;
     startRecognitionInstance();
   }
@@ -149,8 +163,11 @@ const VoiceSpeech = (() => {
       for (let i = event.resultIndex; i < event.results.length; i += 1) {
         const result = event.results[i];
         console.log('[VoiceSpeech] heard:', result[0].transcript, result.isFinal ? '(final)' : '(interim)');
-        checkForTrigger(result[0].transcript);
-        checkForPlayCommand(result[0].transcript, !result.isFinal);
+        if (result.isFinal) {
+          if (checkForSongControl(result[0].transcript, true)) continue;
+          checkForTrigger(result[0].transcript);
+          checkForPlayCommand(result[0].transcript, false);
+        }
       }
     };
 
@@ -198,6 +215,7 @@ const VoiceSpeech = (() => {
 
   function stop() {
     listening = false;
+    onSongControl = null;
     currentRecognitionId += 1; // invalidate any pending restart callbacks for old instances
     if (restartTimer) {
       clearTimeout(restartTimer);

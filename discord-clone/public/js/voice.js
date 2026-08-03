@@ -213,7 +213,17 @@ const VoiceChat = (() => {
         const group = (typeof AppState !== 'undefined' && AppState.groupsData) ? AppState.groupsData.find((g) => g.id === groupId) : null;
         VoiceSpeech.setTriggers(group && group.voiceCommandTriggers);
         VoiceSpeech.setLanguage(group && group.voiceCommandLanguage);
-        VoiceSpeech.start((phrase, soundUrl) => triggerReaction(soundUrl), (query) => playSongCommand(query));
+        VoiceSpeech.start(
+          (phrase, soundUrl) => triggerReaction(soundUrl),
+          (query) => playSongCommand(query),
+          (action) => {
+            if (action === 'mute') return muteSong();
+            if (action === 'unmute') return unmuteSong();
+            if (action === 'stop') return stopSong();
+            if (action === 'pause') return pauseSong();
+            if (action === 'resume') return resumeSong();
+          }
+        );
       }
     }
     if (typeof VoiceDraw !== 'undefined') VoiceDraw.setActiveChannel(channelId);
@@ -325,6 +335,22 @@ const VoiceChat = (() => {
       });
   }
 
+  function pauseSong() {
+    if (typeof VoiceYoutube !== 'undefined') VoiceYoutube.pause();
+  }
+
+  function resumeSong() {
+    if (typeof VoiceYoutube !== 'undefined') VoiceYoutube.resume();
+  }
+
+  function muteSong() {
+    if (typeof VoiceYoutube !== 'undefined') VoiceYoutube.mute();
+  }
+
+  function unmuteSong() {
+    if (typeof VoiceYoutube !== 'undefined') VoiceYoutube.unmute();
+  }
+
   function stopSong() {
     if (typeof VoiceYoutube !== 'undefined') VoiceYoutube.stop();
     if (connectedChannelId) socket.emit('voice:stop-song', { channelId: connectedChannelId });
@@ -343,6 +369,9 @@ const VoiceChat = (() => {
       bar.classList.remove('hidden');
     } else if (status === 'playing') {
       label.textContent = info.title || 'Playing…';
+      bar.classList.remove('hidden');
+    } else if (status === 'paused') {
+      label.textContent = info.title ? `${info.title} (paused)` : 'Paused';
       bar.classList.remove('hidden');
     } else {
       bar.classList.add('hidden');

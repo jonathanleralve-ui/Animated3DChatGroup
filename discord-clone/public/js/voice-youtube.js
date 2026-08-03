@@ -47,6 +47,7 @@ const VoiceYoutube = (() => {
           onReady: () => resolve(p),
           onStateChange: (e) => {
             if (e.data === YT.PlayerState.PLAYING && onStateChange) onStateChange('playing', { title: currentTitle });
+            if (e.data === YT.PlayerState.PAUSED && onStateChange) onStateChange('paused', { title: currentTitle });
             if (e.data === YT.PlayerState.ENDED && onStateChange) onStateChange('stopped', {});
           },
           onError: () => { if (onStateChange) onStateChange('error', {}); }
@@ -63,6 +64,22 @@ const VoiceYoutube = (() => {
     if (onStateChange) onStateChange('loading', { title: currentTitle });
     const p = await init('voice-youtube-player');
     p.loadVideoById({ videoId, startSeconds: Number(startSeconds) || 0 });
+  }
+
+  function pause() {
+    if (player && player.pauseVideo) player.pauseVideo();
+  }
+
+  function resume() {
+    if (player && player.playVideo) player.playVideo();
+  }
+
+  function mute() {
+    if (player && player.mute) player.mute();
+  }
+
+  function unmute() {
+    if (player && player.unMute) player.unMute();
   }
 
   function stop() {

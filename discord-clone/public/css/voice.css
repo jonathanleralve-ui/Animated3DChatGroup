@@ -120,16 +120,21 @@
   white-space: nowrap;
 }
 
+.voice-now-playing-control,
 .voice-now-playing-stop {
   flex-shrink: 0;
-  width: 22px;
-  height: 22px;
+  width: 26px;
+  height: 26px;
   border-radius: 0;
   border: 2px solid #111214;
   background: #ece6d6;
   color: #111214;
-  font-size: 11px;
+  font-size: 13px;
   cursor: pointer;
+}
+.voice-now-playing-control:hover,
+.voice-now-playing-stop:hover {
+  background: #ddd8c8;
 }
 .voice-now-playing-stop:hover { background: #f23f43; }
 
