@@ -107,11 +107,12 @@ const VoiceSpeech = (() => {
   function checkForSongControl(transcript, isFinal) {
     if (!isFinal || !onSongControl) return false;
     const heard = transcript.toLowerCase();
-    const match = heard.match(/\b(pause|continue|resume)\s+song\b/i);
+    const match = heard.match(/\b(stop|continue|remove)\b/i);
     if (!match) return false;
-    const action = match[1].toLowerCase();
+    const action = match[1].toLowerCase() === 'stop' ? 'pause' : match[1].toLowerCase() === 'remove' ? 'remove' : 'resume';
     if (action === 'pause') onSongControl('pause');
-    else if (action === 'continue' || action === 'resume') onSongControl('resume');
+    else if (action === 'remove') onSongControl('remove');
+    else onSongControl('resume');
     console.log('[VoiceSpeech] song control matched:', action);
     return true;
   }

@@ -11,6 +11,7 @@ const VoiceYoutube = (() => {
   let apiReadyPromise = null;
   let onStateChange = null; // (status, info) - status: 'loading' | 'playing' | 'stopped' | 'error'
   let currentTitle = null;
+  let isMuted = false;
 
   // The IFrame API loads itself async and calls a *global* callback when
   // ready (that's just how YouTube's embed script works) - wrap that in a
@@ -64,6 +65,10 @@ const VoiceYoutube = (() => {
     if (onStateChange) onStateChange('loading', { title: currentTitle });
     const p = await init('voice-youtube-player');
     p.loadVideoById({ videoId, startSeconds: Number(startSeconds) || 0 });
+    if (isMuted) {
+      if (p.mute) p.mute();
+      else if (p.setVolume) p.setVolume(0);
+    }
   }
 
   function pause() {
@@ -75,11 +80,17 @@ const VoiceYoutube = (() => {
   }
 
   function mute() {
-    if (player && player.mute) player.mute();
+    isMuted = true;
+    if (!player) return;
+    if (player.mute) player.mute();
+    else if (player.setVolume) player.setVolume(0);
   }
 
   function unmute() {
-    if (player && player.unMute) player.unMute();
+    isMuted = false;
+    if (!player) return;
+    if (player.unMute) player.unMute();
+    else if (player.setVolume) player.setVolume(100);
   }
 
   function stop() {
@@ -92,5 +103,5 @@ const VoiceYoutube = (() => {
     onStateChange = cb;
   }
 
-  return { init, play, stop, setOnStateChange };
+  return { init, play, pause, resume, mute, unmute, stop, setOnStateChange };
 })();

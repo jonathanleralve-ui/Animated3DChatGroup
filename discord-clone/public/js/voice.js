@@ -219,7 +219,7 @@ const VoiceChat = (() => {
           (action) => {
             if (action === 'mute') return muteSong();
             if (action === 'unmute') return unmuteSong();
-            if (action === 'stop') return stopSong();
+            if (action === 'stop' || action === 'remove') return stopSong();
             if (action === 'pause') return pauseSong();
             if (action === 'resume') return resumeSong();
           }
@@ -335,6 +335,15 @@ const VoiceChat = (() => {
       });
   }
 
+  let songMuted = false;
+
+  function updateSongMuteButton() {
+    const btn = $('#voice-now-playing-mute');
+    if (!btn) return;
+    btn.textContent = songMuted ? '🔇' : '🔊';
+    btn.title = songMuted ? 'Unmute' : 'Mute';
+  }
+
   function pauseSong() {
     if (typeof VoiceYoutube !== 'undefined') VoiceYoutube.pause();
   }
@@ -343,16 +352,22 @@ const VoiceChat = (() => {
     if (typeof VoiceYoutube !== 'undefined') VoiceYoutube.resume();
   }
 
-  function muteSong() {
-    if (typeof VoiceYoutube !== 'undefined') VoiceYoutube.mute();
-  }
-
-  function unmuteSong() {
-    if (typeof VoiceYoutube !== 'undefined') VoiceYoutube.unmute();
+  function toggleSongMute() {
+    if (typeof VoiceYoutube === 'undefined') return;
+    if (songMuted) {
+      VoiceYoutube.unmute();
+      songMuted = false;
+    } else {
+      VoiceYoutube.mute();
+      songMuted = true;
+    }
+    updateSongMuteButton();
   }
 
   function stopSong() {
     if (typeof VoiceYoutube !== 'undefined') VoiceYoutube.stop();
+    songMuted = false;
+    updateSongMuteButton();
     if (connectedChannelId) socket.emit('voice:stop-song', { channelId: connectedChannelId });
   }
 
@@ -367,12 +382,15 @@ const VoiceChat = (() => {
     if (status === 'loading') {
       label.textContent = `Looking up "${info.title}"…`;
       bar.classList.remove('hidden');
+      updateSongMuteButton();
     } else if (status === 'playing') {
       label.textContent = info.title || 'Playing…';
       bar.classList.remove('hidden');
+      updateSongMuteButton();
     } else if (status === 'paused') {
       label.textContent = info.title ? `${info.title} (paused)` : 'Paused';
       bar.classList.remove('hidden');
+      updateSongMuteButton();
     } else {
       bar.classList.add('hidden');
     }
@@ -1283,6 +1301,9 @@ const VoiceChat = (() => {
     initResizeHandle,
     refreshSelfTile,
     triggerReaction,
+    pauseSong,
+    resumeSong,
+    toggleSongMute,
     stopSong
   };
 })();
