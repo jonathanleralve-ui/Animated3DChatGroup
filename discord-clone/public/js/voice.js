@@ -286,6 +286,44 @@ const VoiceChat = (() => {
     } catch (err) { /* audio not available - reaction still shows visually */ }
   }
 
+  function playSuccessSound() {
+    try {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      const ctx = new AudioCtx();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(880, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(1320, ctx.currentTime + 0.12);
+      gain.gain.setValueAtTime(0.18, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.18);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.18);
+      osc.onended = () => ctx.close();
+    } catch (err) { /* ignore */ }
+  }
+
+  function playFailSound() {
+    try {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      const ctx = new AudioCtx();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'square';
+      osc.frequency.setValueAtTime(220, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(120, ctx.currentTime + 0.18);
+      gain.gain.setValueAtTime(0.16, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.18);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.18);
+      osc.onended = () => ctx.close();
+    } catch (err) { /* ignore */ }
+  }
+
   // Plays a member-uploaded sound clip for a triggered voice command. Falls
   // back to the little synth chime if playback fails for any reason (file
   // missing, browser blocked autoplay, unsupported format, etc.) so a bad
@@ -327,10 +365,12 @@ const VoiceChat = (() => {
     Api.youtube.search(query)
       .then((result) => {
         if (!connectedChannelId) return; // left the call while the search was in flight
+        playSuccessSound();
         socket.emit('voice:play-song', { channelId: connectedChannelId, videoId: result.videoId, title: result.title });
       })
       .catch((err) => {
         console.warn('[VoiceChat] YouTube search failed:', err.message);
+        playFailSound();
         updateNowPlayingBar('error', {});
       });
   }
