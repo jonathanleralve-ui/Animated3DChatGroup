@@ -216,13 +216,13 @@ function registerVoiceHandlers(io, socket, db) {
     if (cid !== socket.currentVoiceChannel) return;
     if (typeof videoId !== 'string' || !YOUTUBE_ID_RE.test(videoId)) return;
     const cleanTitle = typeof title === 'string' ? title.slice(0, 200) : '';
-    socket.to(`voice:${cid}`).emit('voice:play-song', { socketId: socket.id, videoId, title: cleanTitle });
+    io.to(`voice:${cid}`).emit('voice:play-song', { socketId: socket.id, videoId, title: cleanTitle });
   });
 
   socket.on('voice:stop-song', ({ channelId }) => {
     const cid = Number(channelId);
     if (cid !== socket.currentVoiceChannel) return;
-    socket.to(`voice:${cid}`).emit('voice:stop-song', { socketId: socket.id });
+    io.to(`voice:${cid}`).emit('voice:stop-song', { socketId: socket.id });
   });
 
   const VALID_TOOLS = new Set(['pen', 'eraser', 'line', 'rect', 'ellipse', 'text']);

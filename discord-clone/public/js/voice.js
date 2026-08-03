@@ -306,7 +306,6 @@ const VoiceChat = (() => {
     Api.youtube.search(query)
       .then((result) => {
         if (!connectedChannelId) return; // left the call while the search was in flight
-        VoiceYoutube.play(result.videoId, result.title);
         socket.emit('voice:play-song', { channelId: connectedChannelId, videoId: result.videoId, title: result.title });
       })
       .catch((err) => {

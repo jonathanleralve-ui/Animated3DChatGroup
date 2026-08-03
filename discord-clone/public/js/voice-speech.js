@@ -66,6 +66,9 @@ const VoiceSpeech = (() => {
 
   const COOLDOWN_MS = 1500; // don't refire on the same breath/echoed word
   const PLAY_COOLDOWN_MS = 4000; // song requests take longer to say/search than a one-word trigger
+  const RESTART_BACKOFF_MS = 250; // avoid rapid restart loops if recognition ends repeatedly
+  const RESTART_THROTTLE_MS = 2000; // reset restart count after this interval
+  const MAX_RESTARTS_PER_WINDOW = 3; // stop restarting if recognition is failing rapidly
   // Matches "play <anything>" (optionally preceded by other words, e.g. "hey
   // can you play baby by justin bieber") and captures the song text. Only
   // checked against final results (see onresult below) so the capture group
@@ -73,6 +76,10 @@ const VoiceSpeech = (() => {
   const PLAY_RE = /\bplay\s+(.+)/i;
 
   let recognition = null;
+  let currentRecognitionId = 0;
+  let restartTimer = null;
+  let restartCount = 0;
+  let lastRestartAt = 0;
   let listening = false; // intent flag - distinguishes "stopped on purpose" from onend's auto-restart
   let onTrigger = null;
   let onPlaySong = null;
@@ -96,16 +103,19 @@ const VoiceSpeech = (() => {
     }
   }
 
-  function checkForPlayCommand(transcript) {
+  function checkForPlayCommand(transcript, allowInterim = false) {
     const now = Date.now();
     if (now - lastPlayAt < PLAY_COOLDOWN_MS) return;
     const match = transcript.match(PLAY_RE);
-    if (match && match[1].trim()) {
-      lastPlayAt = now;
-      const query = match[1].trim();
-      console.log('[VoiceSpeech] play command matched:', query);
-      if (onPlaySong) onPlaySong(query);
-    }
+    if (!match || !match[1].trim()) return;
+
+    const query = match[1].trim();
+    if (query.length < 4) return;
+    if (allowInterim && query.split(/\s+/).length === 1) return;
+
+    lastPlayAt = now;
+    console.log('[VoiceSpeech] play command matched:', query, allowInterim ? '(interim)' : '');
+    if (onPlaySong) onPlaySong(query);
   }
 
   // triggerCallback(phrase, soundUrl) is called whenever a trigger word is
@@ -120,6 +130,14 @@ const VoiceSpeech = (() => {
   }
 
   function startRecognitionInstance() {
+    if (recognition) {
+      recognition.onend = null;
+      recognition.onresult = null;
+      try { recognition.stop(); } catch (err) { /* ignore already stopped */ }
+      recognition = null;
+    }
+
+    const instanceId = ++currentRecognitionId;
     recognition = new SpeechRecognitionImpl();
     recognition.continuous = true;
     recognition.interimResults = true;
@@ -128,10 +146,12 @@ const VoiceSpeech = (() => {
     recognition.onstart = () => console.log('[VoiceSpeech] listening for trigger words:', TRIGGERS.map((t) => t.phrase).join(', '));
 
     recognition.onresult = (event) => {
-      const result = event.results[event.results.length - 1];
-      console.log('[VoiceSpeech] heard:', result[0].transcript, result.isFinal ? '(final)' : '(interim)');
-      checkForTrigger(result[0].transcript);
-      if (result.isFinal) checkForPlayCommand(result[0].transcript);
+      for (let i = event.resultIndex; i < event.results.length; i += 1) {
+        const result = event.results[i];
+        console.log('[VoiceSpeech] heard:', result[0].transcript, result.isFinal ? '(final)' : '(interim)');
+        checkForTrigger(result[0].transcript);
+        checkForPlayCommand(result[0].transcript, !result.isFinal);
+      }
     };
 
     // Chrome silently ends recognition after a stretch of silence (or the
@@ -139,17 +159,30 @@ const VoiceSpeech = (() => {
     // supposed to be listening. `listening` is only false once stop() was
     // called on purpose, so this keeps "always listening" actually always on.
     recognition.onend = () => {
-      if (listening) {
-        try { startRecognitionInstance(); } catch (err) { /* races with a pending stop() - ignore */ }
+      if (instanceId !== currentRecognitionId) return;
+      if (!listening) return;
+
+      const now = Date.now();
+      if (now - lastRestartAt > RESTART_THROTTLE_MS) {
+        restartCount = 0;
       }
+      lastRestartAt = now;
+      restartCount += 1;
+      if (restartCount > MAX_RESTARTS_PER_WINDOW) {
+        console.warn('[VoiceSpeech] recognition restarting too often; giving up until stop/start resets it');
+        return;
+      }
+
+      if (restartTimer) clearTimeout(restartTimer);
+      restartTimer = window.setTimeout(() => {
+        restartTimer = null;
+        if (listening && instanceId === currentRecognitionId) {
+          try { startRecognitionInstance(); } catch (err) { /* races with a pending stop() - ignore */ }
+        }
+      }, RESTART_BACKOFF_MS);
     };
 
     recognition.onerror = (e) => {
-      // 'no-speech' and 'aborted' fire constantly in normal use (just gaps
-      // between words). 'network' is also expected noise in continuous mode -
-      // Chrome periodically loses its connection to the speech backend even
-      // on a fine connection, and onend's restart below recovers from it
-      // automatically. Only worth logging anything else.
       if (e.error !== 'no-speech' && e.error !== 'aborted' && e.error !== 'network') {
         console.warn('[VoiceSpeech] recognition error:', e.error);
       }
@@ -160,6 +193,11 @@ const VoiceSpeech = (() => {
 
   function stop() {
     listening = false;
+    currentRecognitionId += 1; // invalidate any pending restart callbacks for old instances
+    if (restartTimer) {
+      clearTimeout(restartTimer);
+      restartTimer = null;
+    }
     if (recognition) {
       recognition.onend = null;
       recognition.onresult = null;
