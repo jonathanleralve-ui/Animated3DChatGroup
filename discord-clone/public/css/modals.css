@@ -161,8 +161,8 @@
 .pixel-btn-primary { background: #111214; color: #ece6d6; }
 .pixel-btn-primary:hover { background: #2a2c30; }
 
-.pixel-modal--wide {
-  width: 420px;
+.modal.pixel-modal.pixel-modal--wide {
+  width: 560px;
 }
 
 /* Private (DM) chats open as a draggable pop-up window instead of living
@@ -339,9 +339,9 @@
   cursor: pointer;
 }
 
-.voice-commands-duration-input {
+.voice-commands-row .voice-commands-duration-input {
   flex-shrink: 0;
-  width: 48px;
+  width: 52px;
   height: 32px;
   padding: 0 4px;
   border-radius: 0;
