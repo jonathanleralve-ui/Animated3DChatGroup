@@ -1,7 +1,7 @@
 // Group rail icons, the channel list + member list shown when a group is
 // open, and the create-group / add-member / create-channel modals.
 const Groups = (() => {
-  const { $, $$, escapeHtml, initials, avatarWithStatus, applyNameColor } = Utils;
+  const { $, $$, escapeHtml, initials, avatarWithStatus, applyNameColor, formatDuration } = Utils;
 
   let createChannelType = 'text';
   let pendingRenameChannel = null;
@@ -115,6 +115,7 @@ const Groups = (() => {
 
     Api.groups.voiceRosters(g.id).then((data) => {
       AppState.voiceRosters = data.rosters || {};
+      AppState.voiceCallStartedAt = data.callStartedAt || {};
       refreshChannelHighlight();
     });
 
@@ -156,12 +157,33 @@ const Groups = (() => {
   // Handle a realtime roster change for one voice channel (someone joined,
   // left, or started/stopped screen sharing) by updating local state and
   // re-rendering the channel list if that channel belongs to the open group.
-  function handleVoiceRosterUpdate(channelId, participants) {
+  // callStartedAt is the channel's call-start timestamp (null once it's
+  // emptied back out) - see the timer next to the channel name in
+  // buildChannelRow()/tickVoiceCallTimers() below.
+  function handleVoiceRosterUpdate(channelId, participants, callStartedAt) {
     AppState.voiceRosters[channelId] = participants;
+    AppState.voiceCallStartedAt[channelId] = callStartedAt || null;
     if (AppState.activeGroupChannels.some((c) => c.id === channelId)) {
       renderChannels();
     }
   }
+
+  // Ticks every channel-call-timer element currently in the DOM once a
+  // second, computed fresh from AppState.voiceCallStartedAt rather than
+  // just incrementing, so it can't drift out of sync with the server's
+  // start time (or with itself, across tab visibility changes/throttling).
+  // Deliberately does NOT go through renderChannels() - that rebuilds the
+  // whole channel list from scratch, which would reset transient UI state
+  // like an open channel-options menu every single second.
+  function tickVoiceCallTimers() {
+    document.querySelectorAll('[data-call-timer-channel]').forEach((el) => {
+      const startedAt = AppState.voiceCallStartedAt[el.dataset.callTimerChannel];
+      if (!startedAt) { el.remove(); return; }
+      el.textContent = formatDuration(Date.now() - startedAt);
+    });
+  }
+  setInterval(tickVoiceCallTimers, 1000);
+
 
   function buildVoiceRosterList(roster) {
     const list = document.createElement('div');
@@ -237,6 +259,19 @@ const Groups = (() => {
     label.className = 'channel-row-label';
     label.textContent = `${isVoice ? '🔊' : '#'} ${c.name}`;
     row.appendChild(label);
+
+    // Discord-style call-duration clock next to the channel name, live for
+    // as long as the channel actually has someone in it. Just renders the
+    // current elapsed time on creation - see tickVoiceCallTimers() below for
+    // the once-a-second update that keeps it moving without having to
+    // rebuild this whole row every tick.
+    if (isVoice && AppState.voiceCallStartedAt[c.id]) {
+      const timer = document.createElement('span');
+      timer.className = 'channel-call-timer';
+      timer.dataset.callTimerChannel = c.id;
+      timer.textContent = formatDuration(Date.now() - AppState.voiceCallStartedAt[c.id]);
+      row.appendChild(timer);
+    }
 
     if (!isVoice && AppState.unreadChannelIds[c.id]) {
       const dot = document.createElement('span');

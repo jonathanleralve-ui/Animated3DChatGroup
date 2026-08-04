@@ -18,6 +18,21 @@ const Utils = (() => {
     return d.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
   }
 
+  // Elapsed-time clock for an ongoing voice call, e.g. next to a voice
+  // channel's name - "12:34" under an hour, "1:02:03" once it runs past
+  // one. ms is clamped to 0 so a clock reading that arrives fractionally
+  // ahead of the server's start timestamp (clock skew) doesn't show a
+  // negative duration for a moment.
+  function formatDuration(ms) {
+    const totalSeconds = Math.max(0, Math.floor(ms / 1000));
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+    const mm = String(minutes).padStart(2, '0');
+    const ss = String(seconds).padStart(2, '0');
+    return hours > 0 ? `${hours}:${mm}:${ss}` : `${minutes}:${ss}`;
+  }
+
   function avatarEl(user, size = '') {
     const el = document.createElement('div');
     el.className = `avatar ${size}`;
@@ -374,5 +389,5 @@ const Utils = (() => {
     handle.addEventListener('pointerdown', onPointerDown);
   }
 
-  return { $, $$, initials, escapeHtml, formatTime, avatarEl, avatarWithStatus, applyNameColor, applyCardTheming, EFFECT_BASE_SIZE, EFFECT_ANCHOR_Y, renderProfileEffects, linkifyText, getVideoEmbedUrl, isEmojiOnly, makeModalDraggable, makeFloatingDraggable };
+  return { $, $$, initials, escapeHtml, formatTime, formatDuration, avatarEl, avatarWithStatus, applyNameColor, applyCardTheming, EFFECT_BASE_SIZE, EFFECT_ANCHOR_Y, renderProfileEffects, linkifyText, getVideoEmbedUrl, isEmojiOnly, makeModalDraggable, makeFloatingDraggable };
 })();

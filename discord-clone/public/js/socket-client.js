@@ -76,8 +76,8 @@ const SocketClient = (() => {
       Groups.handleAdded(group);
     });
 
-    socket.on('voice:roster-update', ({ channelId, participants }) => {
-      Groups.handleVoiceRosterUpdate(channelId, participants);
+    socket.on('voice:roster-update', ({ channelId, participants, callStartedAt }) => {
+      Groups.handleVoiceRosterUpdate(channelId, participants, callStartedAt);
     });
 
     socket.on('typing', ({ scope, from, channelId, senderName, senderNameColor }) => {

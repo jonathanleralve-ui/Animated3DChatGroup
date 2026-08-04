@@ -349,6 +349,20 @@
   flex: 1;
 }
 
+.channel-call-timer {
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  font-family: 'Courier New', monospace;
+  color: var(--text-muted);
+  background: var(--bg-light);
+  padding: 1px 6px;
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+.channel-row.voice-row.active .channel-call-timer {
+  color: var(--text-normal);
+}
+
 .channel-row-unread-dot {
   width: 8px;
   height: 8px;

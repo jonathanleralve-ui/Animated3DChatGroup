@@ -1,7 +1,7 @@
 const express = require('express');
 const db = require('../db');
 const auth = require('../middleware/auth');
-const { getRoster } = require('../sockets/voice');
+const { getRoster, getCallStartedAt } = require('../sockets/voice');
 
 const router = express.Router();
 router.use(auth);
@@ -334,9 +334,13 @@ router.get('/:groupId/voice-rosters', async (req, res) => {
     );
 
     const rosters = {};
-    channelsResult.rows.forEach((c) => { rosters[c.id] = getRoster(c.id); });
+    const callStartedAt = {};
+    channelsResult.rows.forEach((c) => {
+      rosters[c.id] = getRoster(c.id);
+      callStartedAt[c.id] = getCallStartedAt(c.id);
+    });
 
-    res.json({ rosters });
+    res.json({ rosters, callStartedAt });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Something went wrong, please try again' });

@@ -3,6 +3,8 @@
 // we just relay offers/answers/ICE candidates between peers).
 // Rooms are keyed by voice CHANNEL id now (a group can have several voice channels).
 
+const db = require('../db');
+
 // channelId -> Map of socketId -> { userId, displayName, avatarColor, avatarUrl, nameColor, sharing }
 const voiceRooms = new Map();
 
@@ -18,6 +20,72 @@ const voiceDraw = new Map();
 // participant to trigger it again.
 const voiceCurrentSong = new Map();
 const MAX_STROKES_PER_CHANNEL = 400; // oldest strokes drop off past this to bound memory
+
+// channelId -> ms epoch timestamp of when the FIRST participant joined an
+// empty voice channel - i.e. when the call started. Cleared the moment the
+// channel empties back out (see leaveVoiceChannel below), so the next
+// person to join starts a fresh timer rather than resuming the old one.
+const voiceCallStartedAt = new Map();
+
+function getCallStartedAt(channelId) {
+  return voiceCallStartedAt.get(channelId) || null;
+}
+
+// Same "12:34" / "1:02:03" shape as the client's Utils.formatDuration (see
+// public/js/utils.js) - kept as a separate copy since this side has no
+// access to that module, but deliberately mirrors it so the number posted
+// to chat below matches whatever the sidebar timer was last showing.
+function formatCallDuration(ms) {
+  const totalSeconds = Math.max(0, Math.floor(ms / 1000));
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  const mm = String(minutes).padStart(2, '0');
+  const ss = String(seconds).padStart(2, '0');
+  return hours > 0 ? `${hours}:${mm}:${ss}` : `${minutes}:${ss}`;
+}
+
+// Posts a "Call in #voice-channel lasted 12:34" system line into the
+// group's default text channel (same channel "X has joined the server"
+// etc. use - see routes/groups.js) once a voice channel's call has fully
+// ended, i.e. its last participant just left. userId is whoever's leave
+// emptied the room, purely to satisfy messages.sender_id (system messages
+// render without an attached author either way - see chat.js).
+async function postCallEndedMessage(io, voiceChannelId, durationMs, userId) {
+  const voiceChannelResult = await db.query('SELECT * FROM channels WHERE id = $1', [voiceChannelId]);
+  const voiceChannel = voiceChannelResult.rows[0];
+  if (!voiceChannel) return;
+
+  const textChannelResult = await db.query(
+    `SELECT * FROM channels WHERE group_id = $1 AND type = 'text' ORDER BY position ASC, id ASC LIMIT 1`,
+    [voiceChannel.group_id]
+  );
+  const textChannel = textChannelResult.rows[0];
+  if (!textChannel) return;
+
+  const userResult = await db.query('SELECT display_name, avatar_color FROM users WHERE id = $1', [userId]);
+  const user = userResult.rows[0];
+  if (!user) return;
+
+  const content = `Call in ${voiceChannel.name} lasted ${formatCallDuration(durationMs)}`;
+
+  const inserted = await db.query(
+    `INSERT INTO messages (sender_id, channel_id, group_id, content, message_type)
+     VALUES ($1, $2, $3, $4, 'system') RETURNING id, created_at`,
+    [userId, textChannel.id, voiceChannel.group_id, content]
+  );
+
+  io.to(`channel:${textChannel.id}`).emit('channel:message', {
+    id: inserted.rows[0].id,
+    content,
+    createdAt: inserted.rows[0].created_at,
+    senderId: userId,
+    senderName: user.display_name,
+    senderColor: user.avatar_color,
+    channelId: textChannel.id,
+    messageType: 'system'
+  });
+}
 
 function drawState(channelId) {
   if (!voiceDraw.has(channelId)) voiceDraw.set(channelId, new Map());
@@ -100,16 +168,30 @@ function getRoster(channelId) {
 }
 
 function broadcastRoster(io, channelId) {
-  io.to(`channel:${channelId}`).emit('voice:roster-update', { channelId, participants: getRoster(channelId) });
+  io.to(`channel:${channelId}`).emit('voice:roster-update', {
+    channelId,
+    participants: getRoster(channelId),
+    callStartedAt: getCallStartedAt(channelId)
+  });
 }
 
 function leaveVoiceChannel(io, socket, channelId) {
   if (!channelId) return;
   const room = voiceRoom(channelId);
+  let endedCallDurationMs = null;
   if (room.has(socket.id)) {
     room.delete(socket.id);
     socket.leave(`voice:${channelId}`);
     io.to(`voice:${channelId}`).emit('voice:peer-left', { socketId: socket.id });
+    // Clear the call-start timestamp BEFORE broadcasting the roster below -
+    // otherwise that broadcast would still carry the old (stale) start time
+    // alongside an empty participants list, and every client watching the
+    // sidebar would keep ticking a timer for a call that just ended.
+    if (room.size === 0) {
+      const startedAt = voiceCallStartedAt.get(channelId);
+      if (startedAt) endedCallDurationMs = Date.now() - startedAt;
+      voiceCallStartedAt.delete(channelId);
+    }
     broadcastRoster(io, channelId);
   }
   if (socket.currentVoiceChannel === channelId) socket.currentVoiceChannel = null;
@@ -117,6 +199,18 @@ function leaveVoiceChannel(io, socket, channelId) {
     voiceRooms.delete(channelId);
     voiceDraw.delete(channelId);
     voiceCurrentSong.delete(channelId);
+  }
+
+  // Fire-and-forget: nothing above needs to wait on this DB round trip, and
+  // none of leaveVoiceChannel's callers await it either (voice:leave,
+  // disconnect, and voice:join's "hop to a new channel" path all just want
+  // the synchronous room bookkeeping done). Errors are swallowed with a log
+  // rather than thrown, same reasoning - a failed system-message post
+  // shouldn't be able to surface as an unhandled rejection.
+  if (endedCallDurationMs !== null) {
+    postCallEndedMessage(io, channelId, endedCallDurationMs, socket.userId).catch((err) => {
+      console.error('postCallEndedMessage error', err);
+    });
   }
 }
 
@@ -166,6 +260,15 @@ function registerVoiceHandlers(io, socket, db) {
         userId: uid, ...mapAvatarProfileRow(user),
         sharing: false, muted: !!muted
       };
+      // Room is still empty at this point (nobody's been added for this
+      // join yet) - if so, this join is the one that starts the call, so
+      // stamp the start time. Stays put across everyone else coming and
+      // going; only cleared once the channel empties out entirely (see
+      // leaveVoiceChannel above), so the timer really does run "until the
+      // last person leaves" rather than resetting per-joiner.
+      if (voiceRoom(cid).size === 0) {
+        voiceCallStartedAt.set(cid, Date.now());
+      }
       voiceRoom(cid).set(socket.id, info);
       socket.currentVoiceChannel = cid;
       socket.join(`voice:${cid}`);
@@ -364,4 +467,4 @@ function registerVoiceHandlers(io, socket, db) {
   });
 }
 
-module.exports = { registerVoiceHandlers, leaveVoiceChannel, getRoster };
+module.exports = { registerVoiceHandlers, leaveVoiceChannel, getRoster, getCallStartedAt };

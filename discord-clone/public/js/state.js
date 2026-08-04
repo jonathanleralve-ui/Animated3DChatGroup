@@ -21,6 +21,12 @@ const AppState = {
   // Who's currently connected to each voice channel of the open group, keyed
   // by channel id: { [channelId]: [{ userId, displayName, avatarColor, avatarUrl, nameColor, sharing }] }
   voiceRosters: {},
+  // ms epoch timestamp of when each voice channel's current call started
+  // (i.e. when it went from 0 to 1 participant), keyed by channel id. Absent/
+  // null means that channel has nobody in it right now. Cleared server-side
+  // the moment a channel empties back out, so a later call gets its own
+  // fresh start time rather than resuming the old one.
+  voiceCallStartedAt: {},
 
   // Unread-message tracking for the rail's red dots. unreadGroupIds maps
   // groupId -> true for groups with an unseen channel message; unreadDmSenders
