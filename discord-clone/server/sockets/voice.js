@@ -40,6 +40,33 @@ function voicePeerList(channelId) {
   }));
 }
 
+// Columns that make up a participant's avatar/profile appearance in a
+// voice channel - shared by voice:join (initial snapshot) and
+// voice:profile-update (mid-call refresh) below so the two can't drift
+// out of sync with each other.
+const AVATAR_PROFILE_COLUMNS = 'display_name, avatar_color, avatar_url, name_color, avatar_model_url, avatar_mode, avatar_model_zoom, avatar_model_offset_x, avatar_model_offset_y, avatar_model_rotation_y, avatar_model_mouth_intensity, avatar_model_voice_start, avatar_model_voice_max, avatar_model_blink_intensity, avatar_model_blink_interval_min, avatar_model_blink_interval_max, avatar_model_blink_enabled, avatar_model_blink_shape_keys, avatar_model_mouth_shape_keys, avatar_model_surprise_shape_keys, avatar_model_surprise_enabled, avatar_model_look_enabled';
+
+function mapAvatarProfileRow(user) {
+  return {
+    displayName: user.display_name, avatarColor: user.avatar_color, avatarUrl: user.avatar_url,
+    nameColor: user.name_color, avatarModelUrl: user.avatar_model_url, avatarMode: user.avatar_mode,
+    avatarModelZoom: user.avatar_model_zoom, avatarModelOffsetX: user.avatar_model_offset_x, avatarModelOffsetY: user.avatar_model_offset_y,
+    avatarModelRotationY: user.avatar_model_rotation_y,
+    avatarModelMouthIntensity: user.avatar_model_mouth_intensity,
+    avatarModelVoiceStart: user.avatar_model_voice_start,
+    avatarModelVoiceMax: user.avatar_model_voice_max,
+    avatarModelBlinkIntensity: user.avatar_model_blink_intensity,
+    avatarModelBlinkIntervalMin: user.avatar_model_blink_interval_min,
+    avatarModelBlinkIntervalMax: user.avatar_model_blink_interval_max,
+    avatarModelBlinkEnabled: user.avatar_model_blink_enabled,
+    avatarModelBlinkShapeKeys: user.avatar_model_blink_shape_keys,
+    avatarModelMouthShapeKeys: user.avatar_model_mouth_shape_keys,
+    avatarModelSurpriseShapeKeys: user.avatar_model_surprise_shape_keys,
+    avatarModelSurpriseEnabled: user.avatar_model_surprise_enabled,
+    avatarModelLookEnabled: user.avatar_model_look_enabled,
+  };
+}
+
 // Simplified snapshot used for the channel list in the sidebar — every group
 // member sees this, not just people currently in the call.
 function getRoster(channelId) {
@@ -121,7 +148,7 @@ function registerVoiceHandlers(io, socket, db) {
         leaveVoiceChannel(io, socket, socket.currentVoiceChannel);
       }
 
-      const userResult = await db.query('SELECT display_name, avatar_color, avatar_url, name_color, avatar_model_url, avatar_mode, avatar_model_zoom, avatar_model_offset_x, avatar_model_offset_y, avatar_model_rotation_y, avatar_model_mouth_intensity, avatar_model_voice_start, avatar_model_voice_max, avatar_model_blink_intensity, avatar_model_blink_interval_min, avatar_model_blink_interval_max, avatar_model_blink_enabled, avatar_model_blink_shape_keys, avatar_model_mouth_shape_keys, avatar_model_surprise_shape_keys, avatar_model_look_enabled FROM users WHERE id = $1', [uid]);
+      const userResult = await db.query(`SELECT ${AVATAR_PROFILE_COLUMNS} FROM users WHERE id = $1`, [uid]);
       const user = userResult.rows[0];
 
       // Tell the joining client who is already in the channel, so it can initiate connections to each
@@ -136,22 +163,7 @@ function registerVoiceHandlers(io, socket, db) {
       }
 
       const info = {
-        userId: uid, displayName: user.display_name, avatarColor: user.avatar_color, avatarUrl: user.avatar_url,
-        nameColor: user.name_color, avatarModelUrl: user.avatar_model_url, avatarMode: user.avatar_mode,
-        avatarModelZoom: user.avatar_model_zoom, avatarModelOffsetX: user.avatar_model_offset_x, avatarModelOffsetY: user.avatar_model_offset_y,
-        avatarModelRotationY: user.avatar_model_rotation_y,
-        avatarModelMouthIntensity: user.avatar_model_mouth_intensity,
-        avatarModelVoiceStart: user.avatar_model_voice_start,
-        avatarModelVoiceMax: user.avatar_model_voice_max,
-        avatarModelBlinkIntensity: user.avatar_model_blink_intensity,
-        avatarModelBlinkIntervalMin: user.avatar_model_blink_interval_min,
-        avatarModelBlinkIntervalMax: user.avatar_model_blink_interval_max,
-        avatarModelBlinkEnabled: user.avatar_model_blink_enabled,
-        avatarModelBlinkShapeKeys: user.avatar_model_blink_shape_keys,
-        avatarModelMouthShapeKeys: user.avatar_model_mouth_shape_keys,
-        avatarModelSurpriseShapeKeys: user.avatar_model_surprise_shape_keys,
-        avatarModelSurpriseEnabled: user.avatar_model_surprise_enabled,
-        avatarModelLookEnabled: user.avatar_model_look_enabled,
+        userId: uid, ...mapAvatarProfileRow(user),
         sharing: false, muted: !!muted
       };
       voiceRoom(cid).set(socket.id, info);
@@ -194,6 +206,38 @@ function registerVoiceHandlers(io, socket, db) {
     info.muted = !!muted;
     io.to(`voice:${cid}`).emit('voice:peer-mute-update', { socketId: socket.id, muted: info.muted });
     broadcastRoster(io, cid);
+  });
+
+  // The client's own profile (display name, avatar model, framing, the
+  // hold-click "surprise" slot picked as active, etc.) can change while
+  // already connected to a voice channel - Edit Profile doesn't require
+  // leaving a call to save. voiceRoom's cached `info` for this socket was
+  // only ever populated once, at voice:join, so without this the change
+  // would silently sit unused (for everyone else in the call, and for the
+  // local user's own mouse-hold slotIndex targeting - see
+  // setMouseHoldSurprise()) until the user left and rejoined the channel.
+  // Re-reads straight from the DB (same columns/mapping as voice:join)
+  // rather than trusting whatever the client sends, same as everywhere
+  // else in this file.
+  socket.on('voice:profile-update', async ({ channelId }) => {
+    try {
+      const cid = Number(channelId);
+      if (cid !== socket.currentVoiceChannel) return;
+      const room = voiceRoom(cid);
+      const info = room.get(socket.id);
+      if (!info) return;
+
+      const userResult = await db.query(`SELECT ${AVATAR_PROFILE_COLUMNS} FROM users WHERE id = $1`, [uid]);
+      const user = userResult.rows[0];
+      if (!user) return;
+
+      Object.assign(info, mapAvatarProfileRow(user));
+
+      io.to(`voice:${cid}`).emit('voice:peer-profile-update', { socketId: socket.id, ...info });
+      broadcastRoster(io, cid);
+    } catch (err) {
+      console.error('voice:profile-update error', err);
+    }
   });
 
   // Relays where the sender's avatar is looking (dx/dy, both -1..1) so

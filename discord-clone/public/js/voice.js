@@ -90,6 +90,17 @@ const VoiceChat = (() => {
       renderParticipants();
     });
 
+    // Someone else saved profile/avatar changes (new active surprise slot,
+    // new framing, new model, etc.) while already connected to the call -
+    // see the voice:profile-update emit in refreshSelfTile() below. Merge
+    // the fresh fields into our cached copy of their info so their tile
+    // picks it up on the very next re-render instead of only after they
+    // leave and rejoin the channel.
+    socket.on('voice:peer-profile-update', ({ socketId, ...info }) => {
+      if (peers[socketId]) Object.assign(peers[socketId].info, info);
+      renderParticipants();
+    });
+
     // Someone else's avatar just turned to look somewhere - apply it to
     // our copy of their tile if it's mounted. Doesn't touch renderParticipants
     // at all - this is purely a visual nudge on an already-mounted instance,
@@ -1419,7 +1430,15 @@ const VoiceChat = (() => {
   }
 
   function refreshSelfTile() {
-    if (connectedChannelId) renderParticipants();
+    if (!connectedChannelId) return;
+    renderParticipants();
+    // Tell the server to re-read our profile and relay the fresh
+    // avatar/surprise-slot fields to everyone else currently in the call -
+    // see voice:profile-update on the server and voice:peer-profile-update
+    // above. Without this, other participants (and a slot-targeted
+    // mouse-hold voice command aimed at us) would keep using whatever was
+    // cached from when we first joined, until we left and rejoined.
+    socket.emit('voice:profile-update', { channelId: connectedChannelId });
   }
 
   return {
