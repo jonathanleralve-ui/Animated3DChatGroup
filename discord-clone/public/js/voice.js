@@ -666,6 +666,16 @@ const VoiceChat = (() => {
     const inst = avatar3DInstances[key];
     if (!inst) return;
     try { inst.api.dispose(); } catch (e) { /* noop */ }
+    // Undo the window-wide hold-state broadcast listeners set up for the
+    // local user's own tile in mountAvatar3D (see isSelf branch there) -
+    // these are bound to window rather than the tile's own container, so
+    // unlike a detached container they won't just quietly stop firing on
+    // their own and need to be explicitly removed here.
+    if (inst.holdListeners) {
+      window.removeEventListener('pointerdown', inst.holdListeners.onDown);
+      window.removeEventListener('pointerup', inst.holdListeners.onUp);
+      window.removeEventListener('blur', inst.holdListeners.onUp);
+    }
     delete avatar3DInstances[key];
   }
 
@@ -719,21 +729,23 @@ const VoiceChat = (() => {
       inst = avatar3DInstances[key] = { api, modelUrl, container };
 
       // Only the local user's own tile should broadcast its hold state -
-      // this is the container avatar3d.js already listens on locally to
-      // drive mouseIsHeld for the surprise expression (see its own
-      // pointerdown/pointerup handlers); we just piggyback the same events
-      // here to relay the state to everyone else, same idea as
-      // startGazeBroadcast() but event-driven instead of polled since hold
-      // is a discrete on/off rather than a continuous value.
+      // avatar3d.js now listens on the whole window (not just its own
+      // container) to drive mouseIsHeld for the surprise expression, so
+      // we piggyback the same window-wide events here to relay the state
+      // to everyone else, same idea as startGazeBroadcast() but
+      // event-driven instead of polled since hold is a discrete on/off
+      // rather than a continuous value.
       if (isSelf) {
-        container.addEventListener('pointerdown', () => {
+        const onDown = () => {
           if (connectedChannelId) socket.emit('voice:mouse-hold', { channelId: connectedChannelId, held: true });
-        });
-        const sendRelease = () => {
+        };
+        const onUp = () => {
           if (connectedChannelId) socket.emit('voice:mouse-hold', { channelId: connectedChannelId, held: false });
         };
-        container.addEventListener('pointerup', sendRelease);
-        container.addEventListener('pointerleave', sendRelease);
+        window.addEventListener('pointerdown', onDown);
+        window.addEventListener('pointerup', onUp);
+        window.addEventListener('blur', onUp);
+        inst.holdListeners = { onDown, onUp };
       }
 
       // createAvatar() just sized the renderer off container.clientWidth,

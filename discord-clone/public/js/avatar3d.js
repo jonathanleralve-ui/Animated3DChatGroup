@@ -968,9 +968,9 @@ function createAvatar3D(container, options = {}) {
             disposed = true;
             if (rafId) cancelAnimationFrame(rafId);
             if (controls) controls.dispose();
-            container.removeEventListener('pointerdown', handlePointerDown);
-            container.removeEventListener('pointerup', handlePointerUp);
-            container.removeEventListener('pointerleave', handlePointerUp);
+            window.removeEventListener('pointerdown', handlePointerDown);
+            window.removeEventListener('pointerup', handlePointerUp);
+            window.removeEventListener('blur', handlePointerUp);
             if (renderer) {
                 renderer.dispose();
                 if (renderer.domElement && renderer.domElement.parentNode) {
@@ -980,11 +980,17 @@ function createAvatar3D(container, options = {}) {
         }
     };
 
+    // Held anywhere on the page (not just over this instance's own
+    // container) so the "hold to react" gesture works no matter where on
+    // screen the user clicks - e.g. clicking a message or the sidebar
+    // while still wanting their own avatar tile to react. `blur` covers
+    // the case where the pointer is released outside the window entirely
+    // (e.g. holding, then alt-tabbing away) so the hold doesn't get stuck.
     const handlePointerDown = () => { mouseIsHeld = true; };
     const handlePointerUp = () => { mouseIsHeld = false; };
-    container.addEventListener('pointerdown', handlePointerDown);
-    container.addEventListener('pointerup', handlePointerUp);
-    container.addEventListener('pointerleave', handlePointerUp);
+    window.addEventListener('pointerdown', handlePointerDown);
+    window.addEventListener('pointerup', handlePointerUp);
+    window.addEventListener('blur', handlePointerUp);
 
     initScene();
     loadModel();
