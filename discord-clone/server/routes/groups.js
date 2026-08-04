@@ -42,6 +42,10 @@ const MAX_TRIGGER_SOUND_URL_LEN = 300;
 // expression slots a user can save, so a voice command's reactionSlot
 // index can be validated against the same range.
 const SURPRISE_SLOT_COUNT = 5;
+// Matches the clamp range in public/js/voice.js - how long a voice
+// command's avatar reaction is allowed to hold before auto-releasing.
+const REACTION_HOLD_MS_MIN = 200;
+const REACTION_HOLD_MS_MAX = 10000;
 
 // Languages the voice-command speech recognizer (public/js/voice-speech.js)
 // can listen for - BCP-47 tags understood by the Web Speech API. Kept to a
@@ -254,7 +258,15 @@ router.patch('/:groupId/voice-commands', async (req, res) => {
         }
         reactionSlot = slot;
       }
-      cleanedTriggers.push({ phrase, soundUrl, avatarReaction, reactionSlot });
+      let reactionHoldMs = null;
+      if (t?.reactionHoldMs !== undefined && t?.reactionHoldMs !== null) {
+        const holdMs = Number(t.reactionHoldMs);
+        if (!Number.isFinite(holdMs) || holdMs < REACTION_HOLD_MS_MIN || holdMs > REACTION_HOLD_MS_MAX) {
+          return res.status(400).json({ error: `Reaction duration must be between ${REACTION_HOLD_MS_MIN / 1000} and ${REACTION_HOLD_MS_MAX / 1000} seconds` });
+        }
+        reactionHoldMs = Math.round(holdMs);
+      }
+      cleanedTriggers.push({ phrase, soundUrl, avatarReaction, reactionSlot, reactionHoldMs });
     }
 
     const updated = await db.query(

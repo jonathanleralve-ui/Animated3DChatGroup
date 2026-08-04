@@ -26,7 +26,12 @@ const VoiceChat = (() => {
   // pulseAvatarReaction(). Speech has no natural mouse-up moment, so this
   // is what auto-releases the hold after a timeout instead.
   let voiceReactionTimer = null;
+  // Fallback when a trigger doesn't specify its own duration (e.g. an
+  // older saved word from before this was configurable). Clamped range
+  // mirrors what the settings panel and server both enforce.
   const VOICE_COMMAND_REACTION_HOLD_MS = 1200;
+  const VOICE_COMMAND_REACTION_HOLD_MS_MIN = 200;
+  const VOICE_COMMAND_REACTION_HOLD_MS_MAX = 10000;
 
   const peers = {};
   const speakingDetectors = {}; // key ('self' or socketId) -> { audioCtx, source, rafId }
@@ -234,7 +239,7 @@ const VoiceChat = (() => {
         VoiceSpeech.setTriggers(group && group.voiceCommandTriggers);
         VoiceSpeech.setLanguage(group && group.voiceCommandLanguage);
         VoiceSpeech.start(
-          (phrase, soundUrl, avatarReaction, reactionSlot) => triggerReaction(soundUrl, avatarReaction, reactionSlot),
+          (phrase, soundUrl, avatarReaction, reactionSlot, reactionHoldMs) => triggerReaction(soundUrl, avatarReaction, reactionSlot, reactionHoldMs),
           (query) => playSongCommand(query),
           (action) => {
             if (action === 'mute') return muteSong();
@@ -356,13 +361,13 @@ const VoiceChat = (() => {
   // to relay it to everyone else currently in the channel. If the matched
   // trigger has "React" turned on in the settings panel, also pulse the
   // hold/surprise expression on our own avatar - optionally using a
-  // specific saved slot (reactionSlot, 0-based) rather than whichever slot
-  // is normally active.
-  function triggerReaction(soundUrl, avatarReaction, reactionSlot) {
+  // specific saved slot (reactionSlot, 0-based) and a custom hold duration
+  // (reactionHoldMs) rather than the defaults.
+  function triggerReaction(soundUrl, avatarReaction, reactionSlot, reactionHoldMs) {
     if (!connectedChannelId) return;
     showReaction(soundUrl);
     socket.emit('voice:reaction', { channelId: connectedChannelId, soundUrl });
-    if (avatarReaction) pulseAvatarReaction(reactionSlot);
+    if (avatarReaction) pulseAvatarReaction(reactionSlot, reactionHoldMs);
   }
 
   // Simulates a brief mouse-hold on our own avatar for a voice command
@@ -370,10 +375,14 @@ const VoiceChat = (() => {
   // mouse (setMouseHoldSurprise + the voice:mouse-hold broadcast so other
   // participants' copy of our tile reacts too), just timed automatically
   // since a spoken word has no release moment of its own. Saying the word
-  // again before it lets go extends the hold rather than re-triggering the
-  // broadcast, so it reads as one continuous reaction, not a flicker.
-  function pulseAvatarReaction(slotIndex) {
+  // again before it lets go extends the hold (using the newer of the two
+  // durations) rather than re-triggering the broadcast, so it reads as one
+  // continuous reaction, not a flicker.
+  function pulseAvatarReaction(slotIndex, holdMs) {
     if (!connectedChannelId) return;
+    const duration = Number.isFinite(holdMs)
+      ? Math.min(VOICE_COMMAND_REACTION_HOLD_MS_MAX, Math.max(VOICE_COMMAND_REACTION_HOLD_MS_MIN, holdMs))
+      : VOICE_COMMAND_REACTION_HOLD_MS;
     const selfInst = avatar3DInstances['self'];
     if (selfInst && selfInst.api.setMouseHoldSurprise) selfInst.api.setMouseHoldSurprise(true, slotIndex);
     if (voiceReactionTimer) {
@@ -388,7 +397,7 @@ const VoiceChat = (() => {
       const inst = avatar3DInstances['self'];
       if (inst && inst.api.setMouseHoldSurprise) inst.api.setMouseHoldSurprise(false);
       if (connectedChannelId) socket.emit('voice:mouse-hold', { channelId: connectedChannelId, held: false });
-    }, VOICE_COMMAND_REACTION_HOLD_MS);
+    }, duration);
   }
 
   // Fired when our own "play <song>" voice command is heard. query is

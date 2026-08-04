@@ -51,7 +51,11 @@ const VoiceSpeech = (() => {
         // null/omitted means "whatever's currently active" (matches plain
         // mouse-hold behavior); otherwise a specific slot index (see Edit
         // Profile's slot tabs and avatar3d.js's setMouseHoldSurprise()).
-        reactionSlot: Number.isInteger(t.reactionSlot) ? t.reactionSlot : null
+        reactionSlot: Number.isInteger(t.reactionSlot) ? t.reactionSlot : null,
+        // How long (ms) the reaction holds before auto-releasing - speech
+        // has no release moment of its own, unlike an actual mouse-hold.
+        // null/omitted falls back to voice.js's own default.
+        reactionHoldMs: Number.isFinite(t.reactionHoldMs) ? t.reactionHoldMs : null
       }));
     TRIGGERS = cleaned.length ? cleaned : DEFAULT_TRIGGERS.slice();
   }
@@ -110,7 +114,7 @@ const VoiceSpeech = (() => {
       if (match) {
         lastTriggerAt = now;
         console.log('[VoiceSpeech] trigger matched:', match.phrase);
-        if (onTrigger) onTrigger(match.phrase, match.soundUrl, match.avatarReaction, match.reactionSlot);
+        if (onTrigger) onTrigger(match.phrase, match.soundUrl, match.avatarReaction, match.reactionSlot, match.reactionHoldMs);
       }
     }
   }
@@ -143,8 +147,9 @@ const VoiceSpeech = (() => {
     if (onPlaySong) onPlaySong(query);
   }
 
-  // triggerCallback(phrase, soundUrl, avatarReaction) is called whenever a
-  // trigger word is heard. playCallback(query) is called whenever "play <something>" is
+  // triggerCallback(phrase, soundUrl, avatarReaction, reactionSlot, reactionHoldMs)
+  // is called whenever a trigger word is heard. playCallback(query) is
+  // called whenever "play <something>" is
   // heard - query is the raw, uncleaned text said after "play".
   function start(triggerCallback, playCallback, songControlCallback) {
     if (!supported() || listening) return;

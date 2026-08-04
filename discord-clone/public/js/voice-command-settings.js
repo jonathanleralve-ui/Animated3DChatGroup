@@ -18,6 +18,11 @@ const VoiceCommandSettings = (() => {
   // since the slot picker here is just "which of your saved slots" and
   // doesn't need to know what any particular user actually has configured.
   const SURPRISE_SLOT_COUNT = 5;
+  // Matches the clamp range enforced in voice.js / groups.js for how long
+  // a voice-command reaction holds before auto-releasing.
+  const REACTION_HOLD_SECONDS_MIN = 0.2;
+  const REACTION_HOLD_SECONDS_MAX = 10;
+  const REACTION_HOLD_MS_DEFAULT = 1200;
 
   let rows = []; // staged edits: [{ phrase, soundUrl, soundName, uploading }]
   let editingGroupId = null; // which group's shared list we're editing
@@ -39,6 +44,7 @@ const VoiceCommandSettings = (() => {
       soundName: t.soundUrl ? soundNameFromUrl(t.soundUrl) : null,
       avatarReaction: !!t.avatarReaction,
       reactionSlot: Number.isInteger(t.reactionSlot) ? t.reactionSlot : null,
+      reactionHoldMs: Number.isFinite(t.reactionHoldMs) ? t.reactionHoldMs : null,
       uploading: false
     }));
     $('#voice-commands-language').value = (group && group.voiceCommandLanguage) || 'en-US';
@@ -154,6 +160,32 @@ const VoiceCommandSettings = (() => {
         rows[i].reactionSlot = slotSelect.value === '' ? null : Number(slotSelect.value);
       });
       rowEl.appendChild(slotSelect);
+
+      // How long (in seconds) the reaction holds before releasing -
+      // stored in ms since that's what setTimeout/the server use, but
+      // shown to the user in seconds since that's what they're actually
+      // picturing ("hold it for about a second").
+      const durationInput = document.createElement('input');
+      durationInput.type = 'number';
+      durationInput.className = 'voice-commands-duration-input';
+      durationInput.title = 'How long the reaction holds, in seconds';
+      durationInput.min = String(REACTION_HOLD_SECONDS_MIN);
+      durationInput.max = String(REACTION_HOLD_SECONDS_MAX);
+      durationInput.step = '0.1';
+      const currentMs = Number.isFinite(row.reactionHoldMs) ? row.reactionHoldMs : REACTION_HOLD_MS_DEFAULT;
+      durationInput.value = String(Math.round((currentMs / 1000) * 10) / 10);
+      durationInput.addEventListener('input', () => {
+        const seconds = Number(durationInput.value);
+        if (!Number.isFinite(seconds)) return;
+        const clamped = Math.min(REACTION_HOLD_SECONDS_MAX, Math.max(REACTION_HOLD_SECONDS_MIN, seconds));
+        rows[i].reactionHoldMs = Math.round(clamped * 1000);
+      });
+      rowEl.appendChild(durationInput);
+
+      const durationUnit = document.createElement('span');
+      durationUnit.className = 'voice-commands-duration-unit';
+      durationUnit.textContent = 's';
+      rowEl.appendChild(durationUnit);
     }
 
     if (row.soundUrl && !row.uploading) {
@@ -223,7 +255,7 @@ const VoiceCommandSettings = (() => {
       $('#voice-commands-error').textContent = 'You can only have up to 15 voice command words';
       return;
     }
-    rows.push({ phrase: '', soundUrl: null, soundName: null, avatarReaction: false, reactionSlot: null, uploading: false });
+    rows.push({ phrase: '', soundUrl: null, soundName: null, avatarReaction: false, reactionSlot: null, reactionHoldMs: null, uploading: false });
     renderRows();
     // Focus the phrase input of the row just added, so typing can start immediately
     const list = $('#voice-commands-list');
@@ -250,7 +282,8 @@ const VoiceCommandSettings = (() => {
         phrase: r.phrase.trim(),
         soundUrl: r.soundUrl || null,
         avatarReaction: !!r.avatarReaction,
-        reactionSlot: r.avatarReaction && Number.isInteger(r.reactionSlot) ? r.reactionSlot : null
+        reactionSlot: r.avatarReaction && Number.isInteger(r.reactionSlot) ? r.reactionSlot : null,
+        reactionHoldMs: r.avatarReaction && Number.isFinite(r.reactionHoldMs) ? r.reactionHoldMs : null
       }))
       .filter((r) => r.phrase || r.soundUrl); // drop fully-blank rows silently
 

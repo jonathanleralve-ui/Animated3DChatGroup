@@ -339,6 +339,28 @@
   cursor: pointer;
 }
 
+.voice-commands-duration-input {
+  flex-shrink: 0;
+  width: 48px;
+  height: 32px;
+  padding: 0 4px;
+  border-radius: 0;
+  border: 3px solid #111214;
+  background: #fff9ea;
+  color: #111214;
+  font-family: 'Courier New', monospace;
+  font-size: 12px;
+  text-align: center;
+}
+
+.voice-commands-duration-unit {
+  flex-shrink: 0;
+  font-family: 'Courier New', monospace;
+  font-size: 11px;
+  color: #5c5546;
+  margin-left: -4px;
+}
+
 .voice-commands-sound-play,
 .voice-commands-sound-clear {
   flex-shrink: 0;
