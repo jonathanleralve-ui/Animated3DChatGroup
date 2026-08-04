@@ -810,30 +810,6 @@ const Profile = (() => {
     return EYE_RELATED_KEYWORDS.some((kw) => lower.includes(kw.toLowerCase()));
   }
 
-  // Same idea as EYE_RELATED_KEYWORDS above, but matching findShapeKeys()'s
-  // default mouth-morph name list. Standard MMD mouth morphs are usually
-  // named with a single bare kana character ('あ','い','う','え','お','わ') -
-  // matching those as a "contains" substring (like the multi-character
-  // keywords below) is too loose, since that single kana can turn up
-  // inside all kinds of unrelated names (e.g. the eye morph "恐ろしい子"
-  // contains "い"). Those go through MOUTH_EXACT_NAMES instead, requiring
-  // an exact match; only the longer, more distinctive keywords use "contains".
-  const MOUTH_EXACT_NAMES = ['あ', 'い', 'う', 'え', 'お', 'わ', 'a', 'i', 'u', 'e', 'o'];
-  const MOUTH_RELATED_KEYWORDS = [
-    'mouth', 'open', '口', '開', 'ω', 'にやり', 'にっこり',
-    '歯', 'ぺろ', 'てへ', '口角', '口横',
-  ];
-
-  function isMouthRelatedShapeKey(name) {
-    // Never double-classify something the eye filter already claims -
-    // keeps the two suggestion lists mutually exclusive.
-    if (isEyeRelatedShapeKey(name)) return false;
-    if (SHAPE_KEY_TRANSLATIONS.mouth[name]) return true;
-    if (MOUTH_EXACT_NAMES.includes(name) || MOUTH_EXACT_NAMES.includes(name.toLowerCase())) return true;
-    const lower = name.toLowerCase();
-    return MOUTH_RELATED_KEYWORDS.some((kw) => lower.includes(kw.toLowerCase()));
-  }
-
   function renderShapeKeyHint(names) {
     const datalist = $('#edit-profile-model-shapekeys-datalist');
     const mouthDatalist = $('#edit-profile-model-mouth-shapekeys-datalist');
@@ -853,8 +829,13 @@ const Profile = (() => {
       });
     }
     if (mouthDatalist) {
+      // Like the surprise datalist below, the mouth fields aren't limited
+      // to guessed "mouth-ish" names - any shape key on the model (eyes,
+      // eyebrows, custom, whatever) can drive lip sync, so this is left
+      // unfiltered too instead of hiding options isMouthRelatedShapeKey()
+      // doesn't happen to recognize.
       mouthDatalist.innerHTML = '';
-      names.filter(isMouthRelatedShapeKey).forEach((name) => {
+      names.forEach((name) => {
         const opt = document.createElement('option');
         opt.value = name;
         const translated = translateShapeKeyName(name);
