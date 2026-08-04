@@ -180,9 +180,16 @@ const VoiceSpeech = (() => {
       for (let i = event.resultIndex; i < event.results.length; i += 1) {
         const result = event.results[i];
         console.log('[VoiceSpeech] heard:', result[0].transcript, result.isFinal ? '(final)' : '(interim)');
+        // Trigger words fire the instant they're heard, even on interim
+        // (in-progress) results - no waiting for Chrome to detect a pause.
+        // COOLDOWN_MS in checkForTrigger already stops the same word from
+        // refiring as the interim transcript keeps getting revised.
+        checkForTrigger(result[0].transcript);
         if (result.isFinal) {
+          // "play <song>" and song control ("stop"/"continue"/"remove")
+          // stay final-only on purpose - they need the pause so the full
+          // request/word is captured instead of cutting off mid-sentence.
           if (checkForSongControl(result[0].transcript, true)) continue;
-          checkForTrigger(result[0].transcript);
           checkForPlayCommand(result[0].transcript, false);
         }
       }
