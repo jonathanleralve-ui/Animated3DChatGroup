@@ -6,9 +6,18 @@
 // listens for, and everyone in the call hears the same set. Each row is a
 // { phrase, soundUrl } object - no icon, just the word and its sound; edits
 // (plus the language dropdown) are staged locally and only sent to the
-// server on Save.
+// server on Save. avatarReaction, toggled per-row with the 😮 button, makes
+// saying that word also pulse the hold/surprise expression on the
+// speaker's own avatar - see pulseAvatarReaction() in voice.js. reactionSlot
+// picks *which* saved slot (see Edit Profile's slot tabs) to use for that -
+// left as "Active slot" (null) it just mirrors whatever's normally live.
 const VoiceCommandSettings = (() => {
   const { $ } = Utils;
+
+  // Matches SURPRISE_SLOT_COUNT in profile.js / groups.js - fixed at 5
+  // since the slot picker here is just "which of your saved slots" and
+  // doesn't need to know what any particular user actually has configured.
+  const SURPRISE_SLOT_COUNT = 5;
 
   let rows = []; // staged edits: [{ phrase, soundUrl, soundName, uploading }]
   let editingGroupId = null; // which group's shared list we're editing
@@ -28,6 +37,8 @@ const VoiceCommandSettings = (() => {
       phrase: t.phrase,
       soundUrl: t.soundUrl || null,
       soundName: t.soundUrl ? soundNameFromUrl(t.soundUrl) : null,
+      avatarReaction: !!t.avatarReaction,
+      reactionSlot: Number.isInteger(t.reactionSlot) ? t.reactionSlot : null,
       uploading: false
     }));
     $('#voice-commands-language').value = (group && group.voiceCommandLanguage) || 'en-US';
@@ -105,6 +116,46 @@ const VoiceCommandSettings = (() => {
     uploadBtn.addEventListener('click', () => fileInput.click());
     rowEl.appendChild(uploadBtn);
 
+    // Toggles whether saying this word also pulses the "hold" surprise
+    // expression on the speaker's own avatar (same effect as pressing and
+    // holding the mouse on it) - independent of the sound clip, so a word
+    // can play a sound, react, both, or neither.
+    const reactionBtn = document.createElement('button');
+    reactionBtn.type = 'button';
+    reactionBtn.className = 'voice-commands-reaction-btn' + (row.avatarReaction ? ' active' : '');
+    reactionBtn.title = row.avatarReaction ? 'Avatar reacts when said (click to turn off)' : 'Avatar reacts when said (click to turn on)';
+    reactionBtn.textContent = '😮';
+    reactionBtn.addEventListener('click', () => {
+      rows[i].avatarReaction = !rows[i].avatarReaction;
+      renderRows();
+    });
+    rowEl.appendChild(reactionBtn);
+
+    // Which saved slot (see Edit Profile's slot tabs) that reaction should
+    // use - only meaningful, and only shown, once React is toggled on.
+    // "Active slot" (null) just mirrors whatever's normally live, same as
+    // a plain mouse-hold - the rest let the word force a specific one.
+    if (row.avatarReaction) {
+      const slotSelect = document.createElement('select');
+      slotSelect.className = 'voice-commands-slot-select';
+      slotSelect.title = 'Which saved expression slot this word triggers';
+      const activeOpt = document.createElement('option');
+      activeOpt.value = '';
+      activeOpt.textContent = 'Active slot';
+      slotSelect.appendChild(activeOpt);
+      for (let s = 0; s < SURPRISE_SLOT_COUNT; s += 1) {
+        const opt = document.createElement('option');
+        opt.value = String(s);
+        opt.textContent = `Slot ${s + 1}`;
+        slotSelect.appendChild(opt);
+      }
+      slotSelect.value = Number.isInteger(row.reactionSlot) ? String(row.reactionSlot) : '';
+      slotSelect.addEventListener('change', () => {
+        rows[i].reactionSlot = slotSelect.value === '' ? null : Number(slotSelect.value);
+      });
+      rowEl.appendChild(slotSelect);
+    }
+
     if (row.soundUrl && !row.uploading) {
       const playBtn = document.createElement('button');
       playBtn.type = 'button';
@@ -172,7 +223,7 @@ const VoiceCommandSettings = (() => {
       $('#voice-commands-error').textContent = 'You can only have up to 15 voice command words';
       return;
     }
-    rows.push({ phrase: '', soundUrl: null, soundName: null, uploading: false });
+    rows.push({ phrase: '', soundUrl: null, soundName: null, avatarReaction: false, reactionSlot: null, uploading: false });
     renderRows();
     // Focus the phrase input of the row just added, so typing can start immediately
     const list = $('#voice-commands-list');
@@ -195,7 +246,12 @@ const VoiceCommandSettings = (() => {
     }
 
     const cleaned = rows
-      .map((r) => ({ phrase: r.phrase.trim(), soundUrl: r.soundUrl || null }))
+      .map((r) => ({
+        phrase: r.phrase.trim(),
+        soundUrl: r.soundUrl || null,
+        avatarReaction: !!r.avatarReaction,
+        reactionSlot: r.avatarReaction && Number.isInteger(r.reactionSlot) ? r.reactionSlot : null
+      }))
       .filter((r) => r.phrase || r.soundUrl); // drop fully-blank rows silently
 
     for (const r of cleaned) {

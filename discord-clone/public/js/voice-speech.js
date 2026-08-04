@@ -3,8 +3,9 @@
 // partially in Safari) to listen continuously while connected to a voice
 // channel. Handles two kinds of commands:
 //  - fixed trigger words/phrases (configured in the voice-command settings
-//    panel) - calls back with the matched phrase and an optional custom
-//    uploaded sound URL.
+//    panel) - calls back with the matched phrase, an optional custom
+//    uploaded sound URL, and whether the word is also flagged to pulse the
+//    speaker's avatar-hold reaction.
 //  - "play <song>" - calls back with whatever was said after "play" so the
 //    caller can look it up on YouTube (see voice-youtube.js).
 // No icon/emoji is shown for either - the only feedback is audio. Note this
@@ -40,7 +41,17 @@ const VoiceSpeech = (() => {
       .filter((t) => t && typeof t.phrase === 'string' && t.phrase.trim())
       .map((t) => ({
         phrase: t.phrase.trim().toLowerCase(),
-        soundUrl: typeof t.soundUrl === 'string' && t.soundUrl.trim() ? t.soundUrl.trim() : null
+        soundUrl: typeof t.soundUrl === 'string' && t.soundUrl.trim() ? t.soundUrl.trim() : null,
+        // When set, hearing this phrase also pulses the "hold" surprise
+        // expression on the speaker's own avatar (see voice.js's
+        // pulseAvatarReaction()) - the speech equivalent of holding the
+        // mouse down on it, since there's no natural "release" moment.
+        avatarReaction: !!t.avatarReaction,
+        // Which saved surprise slot (0-based) to use for that reaction -
+        // null/omitted means "whatever's currently active" (matches plain
+        // mouse-hold behavior); otherwise a specific slot index (see Edit
+        // Profile's slot tabs and avatar3d.js's setMouseHoldSurprise()).
+        reactionSlot: Number.isInteger(t.reactionSlot) ? t.reactionSlot : null
       }));
     TRIGGERS = cleaned.length ? cleaned : DEFAULT_TRIGGERS.slice();
   }
@@ -99,7 +110,7 @@ const VoiceSpeech = (() => {
       if (match) {
         lastTriggerAt = now;
         console.log('[VoiceSpeech] trigger matched:', match.phrase);
-        if (onTrigger) onTrigger(match.phrase, match.soundUrl);
+        if (onTrigger) onTrigger(match.phrase, match.soundUrl, match.avatarReaction, match.reactionSlot);
       }
     }
   }
@@ -132,8 +143,8 @@ const VoiceSpeech = (() => {
     if (onPlaySong) onPlaySong(query);
   }
 
-  // triggerCallback(phrase, soundUrl) is called whenever a trigger word is
-  // heard. playCallback(query) is called whenever "play <something>" is
+  // triggerCallback(phrase, soundUrl, avatarReaction) is called whenever a
+  // trigger word is heard. playCallback(query) is called whenever "play <something>" is
   // heard - query is the raw, uncleaned text said after "play".
   function start(triggerCallback, playCallback, songControlCallback) {
     if (!supported() || listening) return;

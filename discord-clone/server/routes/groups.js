@@ -38,6 +38,10 @@ function randomColor() {
 const MAX_VOICE_TRIGGERS = 15;
 const MAX_TRIGGER_PHRASE_LEN = 30;
 const MAX_TRIGGER_SOUND_URL_LEN = 300;
+// Matches SURPRISE_SLOT_COUNT in public/js/profile.js - how many hold-click
+// expression slots a user can save, so a voice command's reactionSlot
+// index can be validated against the same range.
+const SURPRISE_SLOT_COUNT = 5;
 
 // Languages the voice-command speech recognizer (public/js/voice-speech.js)
 // can listen for - BCP-47 tags understood by the Web Speech API. Kept to a
@@ -241,7 +245,16 @@ router.patch('/:groupId/voice-commands', async (req, res) => {
           return res.status(400).json({ error: 'Voice command sound URL is too long' });
         }
       }
-      cleanedTriggers.push({ phrase, soundUrl });
+      const avatarReaction = !!t?.avatarReaction;
+      let reactionSlot = null;
+      if (t?.reactionSlot !== undefined && t?.reactionSlot !== null) {
+        const slot = Number(t.reactionSlot);
+        if (!Number.isInteger(slot) || slot < 0 || slot >= SURPRISE_SLOT_COUNT) {
+          return res.status(400).json({ error: 'Invalid voice command reaction slot' });
+        }
+        reactionSlot = slot;
+      }
+      cleanedTriggers.push({ phrase, soundUrl, avatarReaction, reactionSlot });
     }
 
     const updated = await db.query(

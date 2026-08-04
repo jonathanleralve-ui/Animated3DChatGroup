@@ -22,6 +22,12 @@ const VoiceChat = (() => {
   let sharingScreen = false;
   let muted = false;
 
+  // Pending "release" for a voice-command-triggered avatar reaction - see
+  // pulseAvatarReaction(). Speech has no natural mouse-up moment, so this
+  // is what auto-releases the hold after a timeout instead.
+  let voiceReactionTimer = null;
+  const VOICE_COMMAND_REACTION_HOLD_MS = 1200;
+
   const peers = {};
   const speakingDetectors = {}; // key ('self' or socketId) -> { audioCtx, source, rafId }
   const avatar3DInstances = {}; // key -> { api, modelUrl, container }
@@ -89,10 +95,12 @@ const VoiceChat = (() => {
     });
 
     // Someone else is mouse-holding their own tile - mirror the surprise
-    // expression on our copy of their avatar.
-    socket.on('voice:mouse-hold', ({ socketId, held }) => {
+    // expression on our copy of their avatar. slotIndex, if present, means
+    // a voice command asked for a specific saved slot rather than
+    // whatever's active for them normally.
+    socket.on('voice:mouse-hold', ({ socketId, held, slotIndex }) => {
       const inst = avatar3DInstances[socketId];
-      if (inst && inst.api.setMouseHoldSurprise) inst.api.setMouseHoldSurprise(held);
+      if (inst && inst.api.setMouseHoldSurprise) inst.api.setMouseHoldSurprise(held, slotIndex);
     });
 
     // Someone else's voice command fired a reaction - show it over their tile.
@@ -226,7 +234,7 @@ const VoiceChat = (() => {
         VoiceSpeech.setTriggers(group && group.voiceCommandTriggers);
         VoiceSpeech.setLanguage(group && group.voiceCommandLanguage);
         VoiceSpeech.start(
-          (phrase, soundUrl) => triggerReaction(soundUrl),
+          (phrase, soundUrl, avatarReaction, reactionSlot) => triggerReaction(soundUrl, avatarReaction, reactionSlot),
           (query) => playSongCommand(query),
           (action) => {
             if (action === 'mute') return muteSong();
@@ -252,6 +260,7 @@ const VoiceChat = (() => {
     socket.emit('voice:leave', { channelId: cid });
     Object.keys(peers).forEach(teardownPeer);
     stopSpeakingDetection('self');
+    if (voiceReactionTimer) { clearTimeout(voiceReactionTimer); voiceReactionTimer = null; }
     disposeAvatar3D('self');
     if (typeof VoiceDraw !== 'undefined') VoiceDraw.setActiveChannel(null);
     if (typeof VoiceSpeech !== 'undefined') VoiceSpeech.stop();
@@ -344,11 +353,42 @@ const VoiceChat = (() => {
 
   // Called when our own voice command fires: play it locally right away
   // (no need to wait on a round trip to our own screen) and tell the server
-  // to relay it to everyone else currently in the channel.
-  function triggerReaction(soundUrl) {
+  // to relay it to everyone else currently in the channel. If the matched
+  // trigger has "React" turned on in the settings panel, also pulse the
+  // hold/surprise expression on our own avatar - optionally using a
+  // specific saved slot (reactionSlot, 0-based) rather than whichever slot
+  // is normally active.
+  function triggerReaction(soundUrl, avatarReaction, reactionSlot) {
     if (!connectedChannelId) return;
     showReaction(soundUrl);
     socket.emit('voice:reaction', { channelId: connectedChannelId, soundUrl });
+    if (avatarReaction) pulseAvatarReaction(reactionSlot);
+  }
+
+  // Simulates a brief mouse-hold on our own avatar for a voice command
+  // tagged "React" - same mechanism as actually pressing and holding the
+  // mouse (setMouseHoldSurprise + the voice:mouse-hold broadcast so other
+  // participants' copy of our tile reacts too), just timed automatically
+  // since a spoken word has no release moment of its own. Saying the word
+  // again before it lets go extends the hold rather than re-triggering the
+  // broadcast, so it reads as one continuous reaction, not a flicker.
+  function pulseAvatarReaction(slotIndex) {
+    if (!connectedChannelId) return;
+    const selfInst = avatar3DInstances['self'];
+    if (selfInst && selfInst.api.setMouseHoldSurprise) selfInst.api.setMouseHoldSurprise(true, slotIndex);
+    if (voiceReactionTimer) {
+      clearTimeout(voiceReactionTimer);
+    } else {
+      const payload = { channelId: connectedChannelId, held: true };
+      if (Number.isInteger(slotIndex)) payload.slotIndex = slotIndex;
+      socket.emit('voice:mouse-hold', payload);
+    }
+    voiceReactionTimer = setTimeout(() => {
+      voiceReactionTimer = null;
+      const inst = avatar3DInstances['self'];
+      if (inst && inst.api.setMouseHoldSurprise) inst.api.setMouseHoldSurprise(false);
+      if (connectedChannelId) socket.emit('voice:mouse-hold', { channelId: connectedChannelId, held: false });
+    }, VOICE_COMMAND_REACTION_HOLD_MS);
   }
 
   // Fired when our own "play <song>" voice command is heard. query is

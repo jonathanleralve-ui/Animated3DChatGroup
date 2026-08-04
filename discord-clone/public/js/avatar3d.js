@@ -121,42 +121,46 @@ function createAvatar3D(container, options = {}) {
         return [];
     }
 
-    function parseSurpriseShapeKeySettings(v) {
-        const normalizeEntry = (entry) => {
-            if (!entry) return null;
-            if (typeof entry === 'string') {
-                const name = entry.trim();
-                return name ? { name, intensity: 1 } : null;
-            }
-            if (typeof entry === 'object') {
-                const name = String(entry.name || '').trim();
-                if (!name) return null;
-                const intensity = Number(entry.intensity);
-                return {
-                    name,
-                    intensity: Number.isFinite(intensity) ? Math.min(1, Math.max(0, intensity)) : 1,
-                };
-            }
-            return null;
-        };
-        const normalizeEntryList = (list) => (Array.isArray(list) ? list : []).map(normalizeEntry).filter(Boolean);
+    function normalizeSurpriseEntry(entry) {
+        if (!entry) return null;
+        if (typeof entry === 'string') {
+            const name = entry.trim();
+            return name ? { name, intensity: 1 } : null;
+        }
+        if (typeof entry === 'object') {
+            const name = String(entry.name || '').trim();
+            if (!name) return null;
+            const intensity = Number(entry.intensity);
+            return {
+                name,
+                intensity: Number.isFinite(intensity) ? Math.min(1, Math.max(0, intensity)) : 1,
+            };
+        }
+        return null;
+    }
+    function normalizeSurpriseEntryList(list) {
+        return (Array.isArray(list) ? list : []).map(normalizeSurpriseEntry).filter(Boolean);
+    }
 
+    function parseSurpriseShapeKeySettings(v) {
         // Multi-slot format: { slots: [ [entry,entry,entry], ... up to 5 ], active: N }.
         // Edit Profile lets the user save several different hold-click
         // expressions and pick which one is actually live; only that one
-        // (slots[active]) is ever used for rendering - the rest just ride
-        // along in storage so they can be switched back to later. Resolving
+        // (slots[active]) is used here - the rest just ride along in
+        // storage so they can be switched back to later (or picked out by
+        // index for a voice-command reaction - see parseAllSurpriseSlots
+        // below, which keeps every slot around for exactly that). Resolving
         // down to a flat entry list here means every other call site
         // (findShapeKeys, setSurpriseShapeKeys, mountAvatar3D, etc.) keeps
         // working with a plain array exactly as before, no changes needed.
         const resolveSlots = (obj) => {
             const slots = Array.isArray(obj.slots) ? obj.slots : [];
             const activeIndex = Number.isInteger(obj.active) && obj.active >= 0 && obj.active < slots.length ? obj.active : 0;
-            return normalizeEntryList(slots[activeIndex]);
+            return normalizeSurpriseEntryList(slots[activeIndex]);
         };
 
         if (Array.isArray(v)) {
-            return normalizeEntryList(v);
+            return normalizeSurpriseEntryList(v);
         }
         if (typeof v === 'string') {
             const trimmed = v.trim();
@@ -164,7 +168,7 @@ function createAvatar3D(container, options = {}) {
             try {
                 const parsed = JSON.parse(trimmed);
                 if (Array.isArray(parsed)) {
-                    return normalizeEntryList(parsed);
+                    return normalizeSurpriseEntryList(parsed);
                 }
                 if (parsed && typeof parsed === 'object' && Array.isArray(parsed.slots)) {
                     return resolveSlots(parsed);
@@ -179,14 +183,44 @@ function createAvatar3D(container, options = {}) {
             return resolveSlots(v);
         }
         if (v && typeof v === 'object' && Array.isArray(v.entries)) {
-            return normalizeEntryList(v.entries);
+            return normalizeSurpriseEntryList(v.entries);
         }
         return [];
+    }
+
+    // Companion to parseSurpriseShapeKeySettings() above: instead of
+    // resolving straight down to the active slot, keeps every saved slot's
+    // entry list around (padded to 5, some possibly empty) plus which index
+    // was active. Used so a voice command can request a *specific* slot's
+    // expression via setMouseHoldSurprise(true, slotIndex) rather than
+    // always whatever the profile currently has set as active - see
+    // getAvailableSurpriseSlotCount()/setMouseHoldSurprise() below. Only
+    // the multi-slot JSON format actually has other slots to offer; legacy
+    // formats (plain array/string) just come back as a single-slot list.
+    function parseAllSurpriseSlots(v) {
+        const fallback = { slots: [parseSurpriseShapeKeySettings(v)], active: 0 };
+        let parsed = v;
+        if (typeof v === 'string') {
+            const trimmed = v.trim();
+            if (!trimmed) return fallback;
+            try { parsed = JSON.parse(trimmed); } catch (e) { return fallback; }
+        }
+        if (!parsed || typeof parsed !== 'object' || !Array.isArray(parsed.slots)) return fallback;
+        const slots = parsed.slots.map(normalizeSurpriseEntryList);
+        const active = Number.isInteger(parsed.active) && parsed.active >= 0 && parsed.active < slots.length ? parsed.active : 0;
+        return { slots, active };
     }
 
     let blinkShapeKeyNames = parseShapeKeyNames(initialBlinkShapeKeys);
     let mouthShapeKeyNames = parseShapeKeyNames(initialMouthShapeKeys);
     let surpriseShapeKeySettings = parseSurpriseShapeKeySettings(initialSurpriseShapeKeys);
+    // Every saved slot's entries (not just the active one) plus which index
+    // was active, kept around purely so a voice command can request a
+    // specific slot by number - see setMouseHoldSurprise() and
+    // getSurpriseSlotCount() below. Independent of surpriseShapeKeySettings
+    // above, which is what actually renders day to day.
+    const { slots: allSurpriseSlotEntries, active: activeSurpriseSlotIndex } = parseAllSurpriseSlots(initialSurpriseShapeKeys);
+    const surpriseGroupsBySlotCache = {}; // slotIndex -> built groups, lazily filled in on first use
 
     // Same clamp ranges as the server (server/routes/auth.js).
     const MOUTH_INTENSITY_MIN = 0, MOUTH_INTENSITY_MAX = 1;
@@ -257,6 +291,11 @@ function createAvatar3D(container, options = {}) {
     let targetMouth = 0;
     let surpriseAmount = 0;
     let mouseIsHeld = false;
+    // Set while a voice-command-requested slot differs from the normal
+    // active one - updateSurprise() renders from this instead of
+    // surpriseKeyGroups while it's set, and clears it once the expression
+    // has eased back down to neutral after release (see updateSurprise).
+    let overrideSurpriseKeyGroups = null;
     let isBlinking = false;
     let blinkTimer = 0;
     let isBlinkEnabled = initialBlinkEnabled;
@@ -593,6 +632,24 @@ function createAvatar3D(container, options = {}) {
         });
     }
 
+    // Matches a given slot's entry list (name + intensity) against the
+    // loaded model's actual shape keys, same logic loadModel() uses for the
+    // active slot at mount time - factored out here so setMouseHoldSurprise
+    // can do the same thing on demand for any other saved slot. Returns []
+    // if the model isn't loaded yet or nothing on it matches.
+    function buildSurpriseGroupsForEntries(entries) {
+        if (!model || !entries || entries.length === 0) return [];
+        const result = findShapeKeys(model, blinkShapeKeyNames, mouthShapeKeyNames, entries);
+        let groups = entries.map((entry) => ({
+            intensity: entry.intensity,
+            keys: result.surpriseKeys.filter((match) => match.name === entry.name)
+        })).filter((group) => group.keys.length > 0);
+        if (groups.length === 0 && result.surpriseKeys.length > 0) {
+            groups = [{ intensity: 1, keys: result.surpriseKeys }];
+        }
+        return groups;
+    }
+
     // In avatar3d.js, modify the loadModel function
     function loadModel() {
         const loader = new MMDLoader();
@@ -793,11 +850,23 @@ function createAvatar3D(container, options = {}) {
     let pendingVoiceLevel = 0;
 
     function updateSurprise(delta) {
-        if (!isReady || surpriseKeyGroups.length === 0) return;
+        const groups = overrideSurpriseKeyGroups || surpriseKeyGroups;
+        if (!isReady || groups.length === 0) return;
         const target = mouseIsHeld ? 1 : 0;
         const ease = 1 - Math.pow(0.0005, delta);
         surpriseAmount += (target - surpriseAmount) * ease;
-        applySurprise(surpriseAmount);
+        groups.forEach((group) => {
+            group.keys.forEach((k) => {
+                k.inf[k.index] = Math.max(0, Math.min(1, surpriseAmount * group.intensity));
+            });
+        });
+        // Once released and eased back down to neutral, drop the override
+        // so the next hold - whether a plain mouse-hold or a different
+        // voice-command slot - starts clean from surpriseKeyGroups again
+        // instead of continuing to render through a stale slot's keys.
+        if (!mouseIsHeld && overrideSurpriseKeyGroups && surpriseAmount < 0.01) {
+            overrideSurpriseKeyGroups = null;
+        }
     }
 
     function loop() {
@@ -919,8 +988,33 @@ function createAvatar3D(container, options = {}) {
             surpriseAmount = 0;
             applySurprise(0);
         },
-        setMouseHoldSurprise(held) {
+        // held: same boolean as before. slotIndex (optional): use a
+        // specific saved surprise slot (0-based) for this hold instead of
+        // whichever slot Edit Profile currently has set as active - this
+        // is what lets a voice command request a particular reaction. Pass
+        // it as undefined/omit it entirely for the normal mouse-hold
+        // behavior. Only meaningful on the true edge (has no effect once
+        // held is false - see updateSurprise() for how the override is
+        // actually cleared, on release rather than here, so the fade-out
+        // finishes on the same shape keys it faded in with).
+        setMouseHoldSurprise(held, slotIndex) {
             mouseIsHeld = !!held;
+            if (!held) return;
+            if (!Number.isInteger(slotIndex) || slotIndex === activeSurpriseSlotIndex) {
+                overrideSurpriseKeyGroups = null; // normal active-slot behavior
+                return;
+            }
+            if (!surpriseGroupsBySlotCache[slotIndex]) {
+                surpriseGroupsBySlotCache[slotIndex] = buildSurpriseGroupsForEntries(allSurpriseSlotEntries[slotIndex]);
+            }
+            overrideSurpriseKeyGroups = surpriseGroupsBySlotCache[slotIndex].length > 0 ? surpriseGroupsBySlotCache[slotIndex] : null;
+        },
+        // How many surprise slots this avatar actually has saved (up to 5,
+        // Edit Profile's SURPRISE_SLOT_COUNT) - used by the voice-command
+        // settings panel to size its slot picker to what the signed-in
+        // user has, rather than always offering all 5 regardless.
+        getSurpriseSlotCount() {
+            return allSurpriseSlotEntries.length;
         },
         // Every shape key name the currently-loaded model actually has,
         // so Edit Profile can show the user something to pick from rather

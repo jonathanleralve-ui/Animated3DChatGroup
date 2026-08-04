@@ -207,11 +207,17 @@ function registerVoiceHandlers(io, socket, db) {
 
   // Relays the sender's mouse-hold "surprise expression" state, same
   // lightweight relay pattern as voice:gaze above - purely visual, so it
-  // skips roster/broadcastRoster entirely.
-  socket.on('voice:mouse-hold', ({ channelId, held }) => {
+  // skips roster/broadcastRoster entirely. slotIndex is optional (only set
+  // when a voice command requested a specific saved slot rather than
+  // whatever's normally active - see pulseAvatarReaction() client-side);
+  // clamped to a plain small integer or omitted so a bad client can't send
+  // anything but a harmless number here.
+  socket.on('voice:mouse-hold', ({ channelId, held, slotIndex }) => {
     const cid = Number(channelId);
     if (cid !== socket.currentVoiceChannel) return;
-    socket.to(`voice:${cid}`).emit('voice:mouse-hold', { socketId: socket.id, held: !!held });
+    const payload = { socketId: socket.id, held: !!held };
+    if (Number.isInteger(slotIndex) && slotIndex >= 0 && slotIndex < 5) payload.slotIndex = slotIndex;
+    socket.to(`voice:${cid}`).emit('voice:mouse-hold', payload);
   });
 
   // Reaction burst (e.g. triggered by a voice command) - purely audio, same
