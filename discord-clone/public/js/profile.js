@@ -610,6 +610,9 @@ const Profile = (() => {
       surpriseShapeKeys: serializeSurpriseEntries(selectedSurpriseSlots[editingSurpriseSlot]),
       surpriseEnabled: selectedSurpriseEnabled,
       lookAtCursor: selectedLookEnabled,
+      // This preview only ever shows your own model, so it's safe (and
+      // expected) for it to react directly to your own mouse hold.
+      localMouseHold: true,
       onReady: ({ shapeKeyNames } = {}) => {
         box.classList.remove('model-preview-loading');
         renderShapeKeyHint(shapeKeyNames || []);

@@ -49,6 +49,19 @@ function createAvatar3D(container, options = {}) {
         // Decorative idle sway - only makes sense when nobody's manually
         // framing the shot. Defaults to whatever controls isn't doing.
         autoRotate: autoRotateEnabled = !controlsEnabled,
+        // Whether THIS instance should watch the page's own mouse
+        // down/up to drive its own surprise expression. Must only be true
+        // for the local user's own tile (and the Edit Profile preview,
+        // which is always previewing your own model) - every other
+        // instance (other participants' voice tiles rendered on this same
+        // screen) should stay silent here and instead be driven purely by
+        // setMouseHoldSurprise(), called from the voice:mouse-hold socket
+        // event for that specific participant. Without this gate, every
+        // mounted instance listened on the whole window independently, so
+        // holding the mouse down anywhere made every avatar on screen -
+        // yours and everyone else's - show the surprise expression at
+        // once instead of just your own.
+        localMouseHold: isLocalMouseHoldEnabled = false,
         // Saved framing: zoom is a camera-distance multiplier (1 = default,
         // <1 = closer/bigger, >1 = further/smaller); offsetX/offsetY pan the
         // framing target left/right/up/down in world units; rotationY spins
@@ -1134,9 +1147,11 @@ function createAvatar3D(container, options = {}) {
             disposed = true;
             if (rafId) cancelAnimationFrame(rafId);
             if (controls) controls.dispose();
-            window.removeEventListener('pointerdown', handlePointerDown);
-            window.removeEventListener('pointerup', handlePointerUp);
-            window.removeEventListener('blur', handlePointerUp);
+            if (isLocalMouseHoldEnabled) {
+                window.removeEventListener('pointerdown', handlePointerDown);
+                window.removeEventListener('pointerup', handlePointerUp);
+                window.removeEventListener('blur', handlePointerUp);
+            }
             if (renderer) {
                 renderer.dispose();
                 if (renderer.domElement && renderer.domElement.parentNode) {
@@ -1152,11 +1167,15 @@ function createAvatar3D(container, options = {}) {
     // while still wanting their own avatar tile to react. `blur` covers
     // the case where the pointer is released outside the window entirely
     // (e.g. holding, then alt-tabbing away) so the hold doesn't get stuck.
+    // Gated behind localMouseHold - see the option's comment above for why
+    // this must not run for every instance unconditionally.
     const handlePointerDown = () => { mouseIsHeld = true; };
     const handlePointerUp = () => { mouseIsHeld = false; };
-    window.addEventListener('pointerdown', handlePointerDown);
-    window.addEventListener('pointerup', handlePointerUp);
-    window.addEventListener('blur', handlePointerUp);
+    if (isLocalMouseHoldEnabled) {
+        window.addEventListener('pointerdown', handlePointerDown);
+        window.addEventListener('pointerup', handlePointerUp);
+        window.addEventListener('blur', handlePointerUp);
+    }
 
     initScene();
     loadModel();

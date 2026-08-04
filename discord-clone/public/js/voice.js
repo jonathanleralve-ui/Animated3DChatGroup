@@ -781,15 +781,23 @@ const VoiceChat = (() => {
         surpriseShapeKeys,
         surpriseEnabled: resolvedSurpriseEnabled,
         mouthShapeKeys,
+        // Only the local user's own tile should watch the page's own
+        // mouse down/up to drive its own surprise expression - other
+        // participants' tiles must only react via setMouseHoldSurprise()
+        // below, driven by their own voice:mouse-hold broadcast. Otherwise
+        // holding the mouse anywhere made every avatar on screen react,
+        // not just your own.
+        localMouseHold: isSelf,
         onError: () => { container.classList.add('avatar-3d-error'); }
       });
       inst = avatar3DInstances[key] = { api, modelUrl, container };
 
-      // Only the local user's own tile should broadcast its hold state -
-      // avatar3d.js now listens on the whole window (not just its own
-      // container) to drive mouseIsHeld for the surprise expression, so
-      // we piggyback the same window-wide events here to relay the state
-      // to everyone else, same idea as startGazeBroadcast() but
+      // Only the local user's own tile should broadcast its hold state.
+      // avatar3d.js's own tile (localMouseHold: isSelf above) already
+      // reacts to the window-wide mouse down/up for our own model's
+      // surprise expression; separately, we piggyback the same
+      // window-wide events here to relay the on/off state to everyone
+      // else's client too, same idea as startGazeBroadcast() but
       // event-driven instead of polled since hold is a discrete on/off
       // rather than a continuous value.
       if (isSelf) {
