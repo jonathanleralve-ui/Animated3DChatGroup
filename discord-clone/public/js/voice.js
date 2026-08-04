@@ -748,8 +748,14 @@ const VoiceChat = (() => {
     }, 150);
   }
 
-  function mountAvatar3D(ring, key, modelUrl, zoom, offsetX, offsetY, rotationY, mouthIntensity, voiceStart, voiceMax, blinkIntensity, blinkIntervalMin, blinkIntervalMax, blinkEnabled, blinkShapeKeys, lookAtCursor, surpriseShapeKeys, isSelf, mouthShapeKeys) {
+  function mountAvatar3D(ring, key, modelUrl, zoom, offsetX, offsetY, rotationY, mouthIntensity, voiceStart, voiceMax, blinkIntensity, blinkIntervalMin, blinkIntervalMax, blinkEnabled, blinkShapeKeys, lookAtCursor, surpriseShapeKeys, isSelf, mouthShapeKeys, surpriseEnabled) {
     let inst = avatar3DInstances[key];
+
+    // Older cached participant data (or a peer who hasn't saved this
+    // setting yet) can come through as undefined - default that to "on"
+    // (avatar3d.js's own default) rather than letting toggleSurprise()
+    // below treat undefined as "flip it" on every re-sync.
+    const resolvedSurpriseEnabled = surpriseEnabled !== undefined ? !!surpriseEnabled : true;
 
     if (inst && inst.modelUrl !== modelUrl) {
       disposeAvatar3D(key);
@@ -773,6 +779,7 @@ const VoiceChat = (() => {
         blinkIntensity, blinkIntervalMin, blinkIntervalMax, blinkEnabled, blinkShapeKeys,
         lookAtCursor,
         surpriseShapeKeys,
+        surpriseEnabled: resolvedSurpriseEnabled,
         mouthShapeKeys,
         onError: () => { container.classList.add('avatar-3d-error'); }
       });
@@ -821,6 +828,7 @@ const VoiceChat = (() => {
       inst.api.setBlinkSettings({ blinkIntensity, blinkIntervalMin, blinkIntervalMax, blinkEnabled });
       inst.api.setBlinkShapeKeys(blinkShapeKeys);
       inst.api.setSurpriseShapeKeys(surpriseShapeKeys);
+      inst.api.toggleSurprise(resolvedSurpriseEnabled);
       inst.api.setMouthShapeKeys(mouthShapeKeys);
       inst.api.setLookAtCursor(lookAtCursor);
     }
@@ -836,10 +844,10 @@ const VoiceChat = (() => {
     list.innerHTML = '';
 
     if (connectedChannelId) {
-      list.appendChild(participantTile('self', me.displayName, me.avatarColor, muted, sharingScreen, true, me.avatarUrl, me.nameColor, me.avatarMode, me.avatarModelUrl, me.avatarModelZoom, me.avatarModelOffsetX, me.avatarModelOffsetY, me.avatarModelRotationY, me.avatarModelMouthIntensity, me.avatarModelVoiceStart, me.avatarModelVoiceMax, me.avatarModelBlinkIntensity, me.avatarModelBlinkIntervalMin, me.avatarModelBlinkIntervalMax, me.avatarModelBlinkEnabled, me.avatarModelBlinkShapeKeys, me.avatarModelLookEnabled, me.avatarModelSurpriseShapeKeys, me.avatarModelMouthShapeKeys));
+      list.appendChild(participantTile('self', me.displayName, me.avatarColor, muted, sharingScreen, true, me.avatarUrl, me.nameColor, me.avatarMode, me.avatarModelUrl, me.avatarModelZoom, me.avatarModelOffsetX, me.avatarModelOffsetY, me.avatarModelRotationY, me.avatarModelMouthIntensity, me.avatarModelVoiceStart, me.avatarModelVoiceMax, me.avatarModelBlinkIntensity, me.avatarModelBlinkIntervalMin, me.avatarModelBlinkIntervalMax, me.avatarModelBlinkEnabled, me.avatarModelBlinkShapeKeys, me.avatarModelLookEnabled, me.avatarModelSurpriseShapeKeys, me.avatarModelMouthShapeKeys, me.avatarModelSurpriseEnabled));
     }
     Object.entries(peers).forEach(([socketId, { info }]) => {
-      list.appendChild(participantTile(socketId, info.displayName, info.avatarColor, !!info.muted, info.sharing, false, info.avatarUrl, info.nameColor, info.avatarMode, info.avatarModelUrl, info.avatarModelZoom, info.avatarModelOffsetX, info.avatarModelOffsetY, info.avatarModelRotationY, info.avatarModelMouthIntensity, info.avatarModelVoiceStart, info.avatarModelVoiceMax, info.avatarModelBlinkIntensity, info.avatarModelBlinkIntervalMin, info.avatarModelBlinkIntervalMax, info.avatarModelBlinkEnabled, info.avatarModelBlinkShapeKeys, info.avatarModelLookEnabled, info.avatarModelSurpriseShapeKeys, info.avatarModelMouthShapeKeys));
+      list.appendChild(participantTile(socketId, info.displayName, info.avatarColor, !!info.muted, info.sharing, false, info.avatarUrl, info.nameColor, info.avatarMode, info.avatarModelUrl, info.avatarModelZoom, info.avatarModelOffsetX, info.avatarModelOffsetY, info.avatarModelRotationY, info.avatarModelMouthIntensity, info.avatarModelVoiceStart, info.avatarModelVoiceMax, info.avatarModelBlinkIntensity, info.avatarModelBlinkIntervalMin, info.avatarModelBlinkIntervalMax, info.avatarModelBlinkEnabled, info.avatarModelBlinkShapeKeys, info.avatarModelLookEnabled, info.avatarModelSurpriseShapeKeys, info.avatarModelMouthShapeKeys, info.avatarModelSurpriseEnabled));
     });
 
     if (list.children.length === 0) {
@@ -988,7 +996,7 @@ const VoiceChat = (() => {
     if (maxBottom > 0) container.style.minHeight = `${Math.ceil(maxBottom) + 16}px`;
   }
 
-  function participantTile(key, name, color, isMuted, isSharing, isSelf, avatarUrl, nameColor, avatarMode, avatarModelUrl, avatarModelZoom, avatarModelOffsetX, avatarModelOffsetY, avatarModelRotationY, avatarModelMouthIntensity, avatarModelVoiceStart, avatarModelVoiceMax, avatarModelBlinkIntensity, avatarModelBlinkIntervalMin, avatarModelBlinkIntervalMax, avatarModelBlinkEnabled, avatarModelBlinkShapeKeys, avatarModelLookEnabled, avatarModelSurpriseShapeKeys, avatarModelMouthShapeKeys) {
+  function participantTile(key, name, color, isMuted, isSharing, isSelf, avatarUrl, nameColor, avatarMode, avatarModelUrl, avatarModelZoom, avatarModelOffsetX, avatarModelOffsetY, avatarModelRotationY, avatarModelMouthIntensity, avatarModelVoiceStart, avatarModelVoiceMax, avatarModelBlinkIntensity, avatarModelBlinkIntervalMin, avatarModelBlinkIntervalMax, avatarModelBlinkEnabled, avatarModelBlinkShapeKeys, avatarModelLookEnabled, avatarModelSurpriseShapeKeys, avatarModelMouthShapeKeys, avatarModelSurpriseEnabled) {
     const tile = document.createElement('div');
     tile.className = 'voice-tile';
     tile.dataset.speaker = key;
@@ -1024,7 +1032,7 @@ const VoiceChat = (() => {
     }, { passive: false });
 
     if (avatarMode === '3d' && avatarModelUrl) {
-      mountAvatar3D(ring, key, avatarModelUrl, avatarModelZoom, avatarModelOffsetX, avatarModelOffsetY, avatarModelRotationY, avatarModelMouthIntensity, avatarModelVoiceStart, avatarModelVoiceMax, avatarModelBlinkIntensity, avatarModelBlinkIntervalMin, avatarModelBlinkIntervalMax, avatarModelBlinkEnabled, avatarModelBlinkShapeKeys, isSelf && avatarModelLookEnabled, avatarModelSurpriseShapeKeys, isSelf, avatarModelMouthShapeKeys);
+      mountAvatar3D(ring, key, avatarModelUrl, avatarModelZoom, avatarModelOffsetX, avatarModelOffsetY, avatarModelRotationY, avatarModelMouthIntensity, avatarModelVoiceStart, avatarModelVoiceMax, avatarModelBlinkIntensity, avatarModelBlinkIntervalMin, avatarModelBlinkIntervalMax, avatarModelBlinkEnabled, avatarModelBlinkShapeKeys, isSelf && avatarModelLookEnabled, avatarModelSurpriseShapeKeys, isSelf, avatarModelMouthShapeKeys, avatarModelSurpriseEnabled);
     } else {
       disposeAvatar3D(key);
       const avatar = avatarEl({ displayName: name, avatarColor: color, avatarUrl: avatarUrl });

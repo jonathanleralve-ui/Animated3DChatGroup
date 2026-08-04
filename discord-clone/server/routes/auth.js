@@ -46,6 +46,7 @@ function publicUser(u) {
     avatarModelBlinkShapeKeys: u.avatar_model_blink_shape_keys,
     avatarModelMouthShapeKeys: u.avatar_model_mouth_shape_keys,
     avatarModelSurpriseShapeKeys: u.avatar_model_surprise_shape_keys,
+    avatarModelSurpriseEnabled: u.avatar_model_surprise_enabled,
     avatarModelLookEnabled: u.avatar_model_look_enabled,
     bannerUrl: u.banner_url,
     bannerZoom: u.banner_zoom,
@@ -143,6 +144,7 @@ router.patch('/me', auth, async (req, res) => {
       avatarModelBlinkShapeKeys,
       avatarModelMouthShapeKeys,
       avatarModelSurpriseShapeKeys,
+      avatarModelSurpriseEnabled,
       avatarModelLookEnabled,
       bannerUrl, bannerZoom, bannerOffsetX, bannerOffsetY,
       avatarBorderStyle, avatarBorderColor, profileAccentColor,
@@ -326,6 +328,13 @@ router.patch('/me', auth, async (req, res) => {
       }
       updates.push(`avatar_model_surprise_shape_keys = $${idx++}`);
       values.push(keys);
+    }
+
+    // Whether holding the mouse down triggers the surprise expression at
+    // all - same "boolean toggle" pattern as avatarModelBlinkEnabled above.
+    if (avatarModelSurpriseEnabled !== undefined) {
+      updates.push(`avatar_model_surprise_enabled = $${idx++}`);
+      values.push(!!avatarModelSurpriseEnabled);
     }
 
     if (avatarModelLookEnabled !== undefined) {

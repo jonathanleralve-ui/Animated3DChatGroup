@@ -65,6 +65,7 @@ function getRoster(channelId) {
     avatarModelBlinkShapeKeys: info.avatarModelBlinkShapeKeys,
     avatarModelMouthShapeKeys: info.avatarModelMouthShapeKeys,
     avatarModelSurpriseShapeKeys: info.avatarModelSurpriseShapeKeys,
+    avatarModelSurpriseEnabled: info.avatarModelSurpriseEnabled,
     avatarModelLookEnabled: info.avatarModelLookEnabled,
     sharing: info.sharing,
     muted: info.muted
@@ -149,6 +150,7 @@ function registerVoiceHandlers(io, socket, db) {
         avatarModelBlinkShapeKeys: user.avatar_model_blink_shape_keys,
         avatarModelMouthShapeKeys: user.avatar_model_mouth_shape_keys,
         avatarModelSurpriseShapeKeys: user.avatar_model_surprise_shape_keys,
+        avatarModelSurpriseEnabled: user.avatar_model_surprise_enabled,
         avatarModelLookEnabled: user.avatar_model_look_enabled,
         sharing: false, muted: !!muted
       };

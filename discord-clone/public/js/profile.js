@@ -82,6 +82,9 @@ const Profile = (() => {
   let selectedSurpriseSlots = makeEmptySurpriseSlots();
   let activeSurpriseSlot = 0;
   let editingSurpriseSlot = 0;
+  // Whether holding the mouse down triggers the surprise expression at
+  // all - same idea as selectedBlinkEnabled, just for this group instead.
+  let selectedSurpriseEnabled = true;
   // Head/eye gaze tracking toggle. Default matches avatar3d.js's default.
   let selectedLookEnabled = true;
 
@@ -605,6 +608,7 @@ const Profile = (() => {
       blinkShapeKeys: selectedBlinkShapeKeys,
       mouthShapeKeys: serializeMouthEntries(selectedMouthShapeKeys),
       surpriseShapeKeys: serializeSurpriseEntries(selectedSurpriseSlots[editingSurpriseSlot]),
+      surpriseEnabled: selectedSurpriseEnabled,
       lookAtCursor: selectedLookEnabled,
       onReady: ({ shapeKeyNames } = {}) => {
         box.classList.remove('model-preview-loading');
@@ -1084,6 +1088,10 @@ const Profile = (() => {
       if (slider) slider.value = String(entry.intensity ?? 1);
       if (value) value.textContent = `${Math.round((entry.intensity ?? 1) * 100)}%`;
     });
+    const toggle = $('#edit-profile-model-surprise-toggle');
+    if (toggle) toggle.checked = selectedSurpriseEnabled;
+    const body = $('#edit-profile-model-surprise-body');
+    if (body) body.classList.toggle('group-disabled', !selectedSurpriseEnabled);
     renderSurpriseSlotTabs();
   }
 
@@ -1116,6 +1124,12 @@ const Profile = (() => {
     selectedSurpriseSlots[editingSurpriseSlot] = makeEmptySurpriseEntries();
     renderSurpriseControls();
     previewCurrentSurpriseSlot();
+  }
+
+  function applySurpriseToggle(enabled) {
+    selectedSurpriseEnabled = enabled;
+    renderSurpriseControls();
+    if (modelPreviewInstance) modelPreviewInstance.toggleSurprise(selectedSurpriseEnabled);
   }
 
   function applyLookToggle(enabled) {
@@ -1313,6 +1327,7 @@ const Profile = (() => {
       activeSurpriseSlot = surprise.active;
       editingSurpriseSlot = surprise.active;
     }
+    selectedSurpriseEnabled = AppState.me.avatarModelSurpriseEnabled ?? true;
     selectedLookEnabled = AppState.me.avatarModelLookEnabled ?? true;
     selectedBannerUrl = AppState.me.bannerUrl || null;
     pendingBannerFile = null;
@@ -1385,6 +1400,7 @@ const Profile = (() => {
         avatarModelBlinkShapeKeys: selectedBlinkShapeKeys,
         avatarModelMouthShapeKeys: serializeMouthEntries(selectedMouthShapeKeys),
         avatarModelSurpriseShapeKeys: serializeSurpriseProfile(selectedSurpriseSlots, activeSurpriseSlot),
+        avatarModelSurpriseEnabled: selectedSurpriseEnabled,
         avatarModelLookEnabled: selectedLookEnabled,
         bannerUrl, bannerZoom: selectedBannerZoom, bannerOffsetX: selectedBannerOffsetX, bannerOffsetY: selectedBannerOffsetY,
         avatarBorderStyle: selectedAvatarBorderStyle, avatarBorderColor: selectedAvatarBorderColor,
@@ -1546,6 +1562,7 @@ const Profile = (() => {
       selectedSurpriseSlots = makeEmptySurpriseSlots();
       activeSurpriseSlot = 0;
       editingSurpriseSlot = 0;
+      selectedSurpriseEnabled = true;
       selectedLookEnabled = true;
       renderModelSection();
       disposeModelPreview();
@@ -1578,6 +1595,7 @@ const Profile = (() => {
     $('#edit-profile-model-surprise-3-slider').addEventListener('input', (e) => applySurpriseIntensityFromSlider(2, e.target.value));
     $('#edit-profile-model-surprise-reset').addEventListener('click', resetSurpriseSettings);
     $('#edit-profile-model-surprise-use-slot').addEventListener('click', useEditingSlotAsActive);
+    $('#edit-profile-model-surprise-toggle').addEventListener('change', (e) => applySurpriseToggle(e.target.checked));
     $$('.surprise-slot-tab').forEach((tab) => {
       tab.addEventListener('click', () => switchEditingSurpriseSlot(tab.dataset.slot));
     });
@@ -1611,6 +1629,7 @@ const Profile = (() => {
           selectedSurpriseSlots = makeEmptySurpriseSlots();
           activeSurpriseSlot = 0;
           editingSurpriseSlot = 0;
+          selectedSurpriseEnabled = true;
           selectedLookEnabled = true;
           renderModelSection();
           mountModelPreview(selectedModelUrl);

@@ -104,6 +104,13 @@ function createAvatar3D(container, options = {}) {
         // which falls back to the built-in name-guessing in findShapeKeys()
         // for the same reason as blinkShapeKeys above.
         surpriseShapeKeys: initialSurpriseShapeKeys = '',
+        // Whether holding the mouse down triggers the surprise expression
+        // at all - same "cap the value" idea as blinkEnabled above. Off
+        // just means holding does nothing (any expression already mid-fade
+        // eases back to neutral); it doesn't clear the saved slots, so
+        // flipping it back on later picks up right where it left off.
+        // Also toggleable live via toggleSurprise().
+        surpriseEnabled: initialSurpriseEnabled = true,
         // Same idea as blinkShapeKeys above, but for which shape key(s)
         // drive the mouth-opening lip-sync animation. By default (empty)
         // the built-in name-guessing in findShapeKeys() is used ('あ',
@@ -343,6 +350,10 @@ function createAvatar3D(container, options = {}) {
     let targetMouth = 0;
     let surpriseAmount = 0;
     let mouseIsHeld = false;
+    // Whether holding the mouse currently does anything at all - toggled
+    // live via toggleSurprise()/setSurpriseSettings(). See updateSurprise()
+    // below for how this gates the actual expression.
+    let isSurpriseEnabled = initialSurpriseEnabled;
     // Set while a voice-command-requested slot differs from the normal
     // active one - updateSurprise() renders from this instead of
     // surpriseKeyGroups while it's set, and clears it once the expression
@@ -901,7 +912,7 @@ function createAvatar3D(container, options = {}) {
     function updateSurprise(delta) {
         const groups = overrideSurpriseKeyGroups || surpriseKeyGroups;
         if (!isReady || groups.length === 0) return;
-        const target = mouseIsHeld ? 1 : 0;
+        const target = (mouseIsHeld && isSurpriseEnabled) ? 1 : 0;
         const ease = 1 - Math.pow(0.0005, delta);
         surpriseAmount += (target - surpriseAmount) * ease;
         groups.forEach((group) => {
@@ -1036,6 +1047,18 @@ function createAvatar3D(container, options = {}) {
             }
             surpriseAmount = 0;
             applySurprise(0);
+        },
+        getSurpriseEnabled() {
+            return isSurpriseEnabled;
+        },
+        // Used by the "Surprise on hold" toggle in Edit Profile, same idea
+        // as toggleBlink() above. Turning it off doesn't snap back to
+        // neutral instantly - updateSurprise() eases any expression
+        // already mid-hold back down over the same fade it always uses
+        // (target just becomes 0 regardless of mouseIsHeld), same calmer
+        // "settling" behavior setLookAtCursor() describes.
+        toggleSurprise(enabled) {
+            isSurpriseEnabled = enabled !== undefined ? enabled : !isSurpriseEnabled;
         },
         // held: same boolean as before. slotIndex (optional): use a
         // specific saved surprise slot (0-based) for this hold instead of

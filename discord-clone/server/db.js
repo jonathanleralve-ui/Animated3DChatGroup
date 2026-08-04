@@ -83,6 +83,9 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_model_blink_enabled BOOLEAN NO
 ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_model_blink_shape_keys TEXT NOT NULL DEFAULT '';
 ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_model_mouth_shape_keys TEXT NOT NULL DEFAULT '';
 ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_model_surprise_shape_keys TEXT NOT NULL DEFAULT '';
+-- Whether holding the mouse down triggers the surprise expression at all.
+-- On by default, matching avatar3d.js's hardcoded default.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_model_surprise_enabled BOOLEAN NOT NULL DEFAULT true;
 
 -- Head/eye gaze tracking toggle (follows the cursor around the screen).
 -- On by default, matching avatar3d.js's hardcoded default.
