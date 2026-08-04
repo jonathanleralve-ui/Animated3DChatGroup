@@ -387,13 +387,37 @@
                       </div>
                     </div>
                     <div class="model-framing-field">
-                      <label class="model-framing-label" for="edit-profile-model-mouth-shapekeys-input">Mouth shape key(s) <span class="model-framing-value">(optional)</span></label>
+                      <label class="model-framing-label" for="edit-profile-model-mouth-1-shapekeys-input">Mouth shape key 1 <span class="model-framing-value">(optional)</span></label>
                       <div class="model-framing-row">
-                        <input type="text" id="edit-profile-model-mouth-shapekeys-input" list="edit-profile-model-mouth-shapekeys-datalist" placeholder="Auto-detect (mouth, open, あ, い, う…)" maxlength="200" />
+                        <input type="text" id="edit-profile-model-mouth-1-shapekeys-input" list="edit-profile-model-mouth-shapekeys-datalist" placeholder="Auto-detect (mouth, open, あ, い, う…)" maxlength="200" />
                         <datalist id="edit-profile-model-mouth-shapekeys-datalist"></datalist>
                       </div>
-                      <p class="model-framing-hint">Leave blank to auto-detect. If lip sync doesn't work, type the exact shape key name(s) from your model, comma-separated if there's more than one - click the field (or start typing) to see what's on this model.</p>
+                      <label class="model-framing-label" for="edit-profile-model-mouth-1-slider">Intensity <span id="edit-profile-model-mouth-1-value" class="model-framing-value">100%</span></label>
+                      <div class="model-framing-row">
+                        <input type="range" id="edit-profile-model-mouth-1-slider" min="0" max="1" step="0.01" value="1" />
+                      </div>
                     </div>
+                    <div class="model-framing-field">
+                      <label class="model-framing-label" for="edit-profile-model-mouth-2-shapekeys-input">Mouth shape key 2 <span class="model-framing-value">(optional)</span></label>
+                      <div class="model-framing-row">
+                        <input type="text" id="edit-profile-model-mouth-2-shapekeys-input" list="edit-profile-model-mouth-shapekeys-datalist" placeholder="e.g. い" maxlength="200" />
+                      </div>
+                      <label class="model-framing-label" for="edit-profile-model-mouth-2-slider">Intensity <span id="edit-profile-model-mouth-2-value" class="model-framing-value">100%</span></label>
+                      <div class="model-framing-row">
+                        <input type="range" id="edit-profile-model-mouth-2-slider" min="0" max="1" step="0.01" value="1" />
+                      </div>
+                    </div>
+                    <div class="model-framing-field">
+                      <label class="model-framing-label" for="edit-profile-model-mouth-3-shapekeys-input">Mouth shape key 3 <span class="model-framing-value">(optional)</span></label>
+                      <div class="model-framing-row">
+                        <input type="text" id="edit-profile-model-mouth-3-shapekeys-input" list="edit-profile-model-mouth-shapekeys-datalist" placeholder="e.g. う" maxlength="200" />
+                      </div>
+                      <label class="model-framing-label" for="edit-profile-model-mouth-3-slider">Intensity <span id="edit-profile-model-mouth-3-value" class="model-framing-value">100%</span></label>
+                      <div class="model-framing-row">
+                        <input type="range" id="edit-profile-model-mouth-3-slider" min="0" max="1" step="0.01" value="1" />
+                      </div>
+                    </div>
+                    <p class="model-framing-hint">Leave entries blank to auto-detect. Up to 3 shape keys can drive the mouth at once, each at its own intensity - e.g. blend a wide-open "あ" with a subtler smile morph. Click a field (or start typing) to see what's on this model.</p>
                     <p class="auth-error" id="edit-profile-model-mic-error"></p>
                   </div>
                   <div class="model-framing-group-footer">

@@ -109,9 +109,14 @@ function createAvatar3D(container, options = {}) {
         // the built-in name-guessing in findShapeKeys() is used ('あ',
         // 'mouth', 'open', etc.) - but plenty of models use shape key
         // names that don't match any of those, so this lets the user type
-        // the exact name(s) themselves (comma-separated) in Edit Profile
-        // instead of lip sync never triggering. Accepts either a
-        // comma-separated string (as saved to the profile) or an array.
+        // the exact name(s) themselves in Edit Profile instead of lip
+        // sync never triggering. Same shape as surpriseShapeKeys: up to 3
+        // entries of { name, intensity }, each shape key opening to its
+        // own relative intensity (0-1) as the mouth amount ramps up, so a
+        // model can blend e.g. a wide "あ" with a subtler smile morph at
+        // the same time instead of only ever driving one shape key.
+        // Accepts a JSON array of entries/name-strings, the legacy plain
+        // comma-separated string (implied intensity 1 each), or an array.
         mouthShapeKeys: initialMouthShapeKeys = '',
     } = options;
 
@@ -211,8 +216,51 @@ function createAvatar3D(container, options = {}) {
         return { slots, active };
     }
 
+    // Same entry format/parsing as surpriseShapeKeySettings below (up to 3
+    // { name, intensity } entries) - no "slots" concept though, since lip
+    // sync only ever has one active combo (unlike the hold-click surprise
+    // expression, it isn't picked per voice-command). Legacy plain
+    // comma-separated strings still parse fine, just default every entry's
+    // intensity to 1 (i.e. behave exactly like the old flat name list did).
+    function parseMouthShapeKeySettings(v) {
+        if (Array.isArray(v)) return normalizeSurpriseEntryList(v);
+        if (typeof v === 'string') {
+            const trimmed = v.trim();
+            if (!trimmed) return [];
+            try {
+                const parsed = JSON.parse(trimmed);
+                if (Array.isArray(parsed)) return normalizeSurpriseEntryList(parsed);
+            } catch (e) {
+                // Fall back to the legacy comma-separated name-only format.
+            }
+            const names = parseShapeKeyNames(trimmed);
+            return names.map((name) => ({ name, intensity: 1 }));
+        }
+        if (v && typeof v === 'object' && Array.isArray(v.entries)) return normalizeSurpriseEntryList(v.entries);
+        return [];
+    }
+
+    // Shared by both the mouth and surprise systems: matches each entry's
+    // name against whatever shape keys findShapeKeys() actually found on
+    // the model, and produces one { intensity, keys } group per entry so
+    // each shape key can be driven at its own relative strength. Falls
+    // back to a single intensity-1 group covering everything found when
+    // there are no explicit entries (the auto-detect case) or none of the
+    // entries' names matched anything, preserving the old "just drive
+    // whatever was found" behavior instead of silently going quiet.
+    function buildGroupsFromEntries(entries, matchedKeys) {
+        let groups = (entries || []).map((entry) => ({
+            intensity: entry.intensity,
+            keys: matchedKeys.filter((match) => match.name === entry.name)
+        })).filter((group) => group.keys.length > 0);
+        if (groups.length === 0 && matchedKeys.length > 0) {
+            groups = [{ intensity: 1, keys: matchedKeys }];
+        }
+        return groups;
+    }
+
     let blinkShapeKeyNames = parseShapeKeyNames(initialBlinkShapeKeys);
-    let mouthShapeKeyNames = parseShapeKeyNames(initialMouthShapeKeys);
+    let mouthShapeKeySettings = parseMouthShapeKeySettings(initialMouthShapeKeys);
     let surpriseShapeKeySettings = parseSurpriseShapeKeySettings(initialSurpriseShapeKeys);
     // Every saved slot's entries (not just the active one) plus which index
     // was active, kept around purely so a voice command can request a
@@ -285,7 +333,11 @@ function createAvatar3D(container, options = {}) {
 
     let scene, camera, renderer, controls;
     let model = null;
-    let mouthKeys = [];
+    // Array of { intensity, keys } groups, mirroring surpriseKeyGroups -
+    // one group per configured mouth shape key entry, each driven at its
+    // own relative intensity by applyMouth() below instead of every
+    // matched shape key sharing a single uniform amount.
+    let mouthKeyGroups = [];
     let blinkKeys = [];
     let surpriseKeyGroups = [];
     let targetMouth = 0;
@@ -424,7 +476,7 @@ function createAvatar3D(container, options = {}) {
         scene.add(gridHelper);
     }
 
-    function findShapeKeys(mesh, customBlinkNames, customMouthNames, customSurpriseEntries) {
+    function findShapeKeys(mesh, customBlinkNames, customMouthEntries, customSurpriseEntries) {
         const defaultMouthNames = ['あ', 'い', 'う', 'え', 'お', 'a', 'i', 'u', 'e', 'o', 'mouth', 'open', '口', '開'];
         const defaultBlinkNames = ['blink', 'eye', '目', 'まばたき', 'closeeye', 'eyelid', 'wink'];
         const defaultSurpriseNames = ['surprise', 'surprised', 'shock', 'shocked', 'wow', 'びっくり', '驚', 'open', '目', '口'];
@@ -432,7 +484,13 @@ function createAvatar3D(container, options = {}) {
         // those (still a case-insensitive "contains" match, same as the
         // default list) instead of guessing from the built-in name list.
         const blinkNames = (customBlinkNames && customBlinkNames.length) ? customBlinkNames : defaultBlinkNames;
-        const mouthNames = (customMouthNames && customMouthNames.length) ? customMouthNames : defaultMouthNames;
+        // customMouthEntries is the same { name, intensity } entry list
+        // shape as customSurpriseEntries - only the names are needed here
+        // to find matches, the per-entry intensity is applied later by
+        // buildGroupsFromEntries()/applyMouth().
+        const mouthNames = (customMouthEntries && customMouthEntries.length)
+            ? customMouthEntries.map((entry) => entry.name).filter(Boolean)
+            : defaultMouthNames;
         const surpriseNames = (customSurpriseEntries && customSurpriseEntries.length)
             ? customSurpriseEntries.map((entry) => entry.name).filter(Boolean)
             : defaultSurpriseNames;
@@ -446,7 +504,8 @@ function createAvatar3D(container, options = {}) {
                 Object.keys(dict).forEach((key) => {
                     const lower = key.toLowerCase();
                     if (mouthNames.some((n) => lower.includes(n.toLowerCase()))) {
-                        foundMouth.push({ index: dict[key], inf });
+                        const matchedName = mouthNames.find((n) => lower.includes(n.toLowerCase()));
+                        foundMouth.push({ index: dict[key], inf, name: matchedName });
                     }
                     if (blinkNames.some((n) => lower.includes(n.toLowerCase()))) {
                         foundBlink.push({ index: dict[key], inf });
@@ -616,7 +675,13 @@ function createAvatar3D(container, options = {}) {
 
     function applyMouth(amount) {
         const limited = Math.min(amount, CONFIG.mouthLimit);
-        mouthKeys.forEach((k) => { k.inf[k.index] = Math.max(0, Math.min(1, limited)); });
+        // Each group (one per configured mouth shape key entry, up to 3)
+        // is scaled by its own relative intensity, same idea as
+        // applySurprise() below - so up to 3 shape keys can drive the
+        // mouth at once instead of only ever one.
+        mouthKeyGroups.forEach((group) => {
+            group.keys.forEach((k) => { k.inf[k.index] = Math.max(0, Math.min(1, limited * group.intensity)); });
+        });
     }
 
     function applyBlink(amount) {
@@ -639,15 +704,8 @@ function createAvatar3D(container, options = {}) {
     // if the model isn't loaded yet or nothing on it matches.
     function buildSurpriseGroupsForEntries(entries) {
         if (!model || !entries || entries.length === 0) return [];
-        const result = findShapeKeys(model, blinkShapeKeyNames, mouthShapeKeyNames, entries);
-        let groups = entries.map((entry) => ({
-            intensity: entry.intensity,
-            keys: result.surpriseKeys.filter((match) => match.name === entry.name)
-        })).filter((group) => group.keys.length > 0);
-        if (groups.length === 0 && result.surpriseKeys.length > 0) {
-            groups = [{ intensity: 1, keys: result.surpriseKeys }];
-        }
-        return groups;
+        const result = findShapeKeys(model, blinkShapeKeyNames, mouthShapeKeySettings, entries);
+        return buildGroupsFromEntries(entries, result.surpriseKeys);
     }
 
     // In avatar3d.js, modify the loadModel function
@@ -742,19 +800,10 @@ function createAvatar3D(container, options = {}) {
                 
                 scene.add(model);
                 
-                const result = findShapeKeys(mesh, blinkShapeKeyNames, mouthShapeKeyNames, surpriseShapeKeySettings);
-                mouthKeys = result.mouthKeys;
+                const result = findShapeKeys(mesh, blinkShapeKeyNames, mouthShapeKeySettings, surpriseShapeKeySettings);
+                mouthKeyGroups = buildGroupsFromEntries(mouthShapeKeySettings, result.mouthKeys);
                 blinkKeys = result.blinkKeys;
-                surpriseKeyGroups = surpriseShapeKeySettings.map((entry) => {
-                    const keys = [];
-                    result.surpriseKeys.forEach((match) => {
-                        if (match.name === entry.name) keys.push(match);
-                    });
-                    return { intensity: entry.intensity, keys };
-                }).filter((group) => group.keys.length > 0);
-                if (surpriseKeyGroups.length === 0 && result.surpriseKeys.length > 0) {
-                    surpriseKeyGroups = [{ intensity: 1, keys: result.surpriseKeys }];
-                }
+                surpriseKeyGroups = buildGroupsFromEntries(surpriseShapeKeySettings, result.surpriseKeys);
 
                 const bones = findBones(mesh);
                 headBone = bones.head; neckBone = bones.neck; eyeLBone = bones.eyeL; eyeRBone = bones.eyeR; upperBodyBone = bones.upperBody;
@@ -815,7 +864,7 @@ function createAvatar3D(container, options = {}) {
     // voiceLevel is expected to be a 0-1 RMS-ish value (same scale voice.js
     // already computes for the speaking indicator).
     function updateMouth(voiceLevel, delta) {
-        if (!isReady || mouthKeys.length === 0) return;
+        if (!isReady || mouthKeyGroups.length === 0) return;
 
         const startNorm = CONFIG.startThreshold / 100;
         const maxNorm = CONFIG.maxThreshold / 100;
@@ -955,18 +1004,24 @@ function createAvatar3D(container, options = {}) {
             blinkKeys = model ? findShapeKeys(model, blinkShapeKeyNames).blinkKeys : [];
         },
         getMouthShapeKeys() {
-            return mouthShapeKeyNames.slice();
+            return mouthShapeKeySettings.slice();
         },
-        // Used by the "Mouth shape key(s)" field in Edit Profile so typing a
-        // name previews live against the mounted model, same idea as
-        // setBlinkShapeKeys(). Passing an empty value goes back to
-        // auto-detecting from the built-in name list. Any shape key(s)
-        // this was previously driving are reset to 0 first so switching
-        // away from one mid-speech doesn't leave a mouth stuck open.
-        setMouthShapeKeys(namesInput) {
-            mouthShapeKeyNames = parseShapeKeyNames(namesInput);
-            mouthKeys.forEach((k) => { k.inf[k.index] = 0; });
-            mouthKeys = model ? findShapeKeys(model, blinkShapeKeyNames, mouthShapeKeyNames, surpriseShapeKeySettings).mouthKeys : [];
+        // Used by the mouth shape key fields in Edit Profile so typing a
+        // name (or dragging its intensity slider) previews live against
+        // the mounted model, same idea as setBlinkShapeKeys() but keeping
+        // the same up-to-3-entries-with-intensity shape setSurpriseShapeKeys()
+        // uses below. Passing an empty value goes back to auto-detecting
+        // from the built-in name list. Any shape key(s) this was previously
+        // driving are reset to 0 first so switching away from one
+        // mid-speech doesn't leave a mouth stuck open.
+        setMouthShapeKeys(entriesInput) {
+            mouthKeyGroups.forEach((group) => group.keys.forEach((k) => { k.inf[k.index] = 0; }));
+            mouthShapeKeySettings = parseMouthShapeKeySettings(entriesInput);
+            mouthKeyGroups = [];
+            if (model) {
+                const result = findShapeKeys(model, blinkShapeKeyNames, mouthShapeKeySettings, surpriseShapeKeySettings);
+                mouthKeyGroups = buildGroupsFromEntries(mouthShapeKeySettings, result.mouthKeys);
+            }
             targetMouth = 0;
         },
         getSurpriseShapeKeys() {
@@ -976,14 +1031,8 @@ function createAvatar3D(container, options = {}) {
             surpriseShapeKeySettings = parseSurpriseShapeKeySettings(entriesInput);
             surpriseKeyGroups = [];
             if (model && surpriseShapeKeySettings.length > 0) {
-                const result = findShapeKeys(model, blinkShapeKeyNames, mouthShapeKeyNames, surpriseShapeKeySettings);
-                surpriseKeyGroups = surpriseShapeKeySettings.map((entry) => ({
-                    intensity: entry.intensity,
-                    keys: result.surpriseKeys.filter((match) => match.name === entry.name)
-                })).filter((group) => group.keys.length > 0);
-                if (surpriseKeyGroups.length === 0 && result.surpriseKeys.length > 0) {
-                    surpriseKeyGroups = [{ intensity: 1, keys: result.surpriseKeys }];
-                }
+                const result = findShapeKeys(model, blinkShapeKeyNames, mouthShapeKeySettings, surpriseShapeKeySettings);
+                surpriseKeyGroups = buildGroupsFromEntries(surpriseShapeKeySettings, result.surpriseKeys);
             }
             surpriseAmount = 0;
             applySurprise(0);

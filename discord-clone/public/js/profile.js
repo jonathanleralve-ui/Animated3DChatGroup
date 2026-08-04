@@ -60,8 +60,11 @@ const Profile = (() => {
   let selectedBlinkShapeKeys = '';
   // Manual override for which shape key(s) drive the mouth-opening lip-sync
   // animation - same idea as selectedBlinkShapeKeys above, but for mouth
-  // morphs instead of eye morphs. Empty = auto-detect as before.
-  let selectedMouthShapeKeys = '';
+  // morphs instead of eye morphs, and same shape as the surprise slots
+  // below: up to 3 shape keys, each with its own intensity (0-1), so up to
+  // 3 mouth morphs can be driven at once instead of only ever one. Empty
+  // entries (blank name) are ignored and fall back to auto-detect.
+  let selectedMouthShapeKeys = makeEmptyMouthEntries();
   // Manual overrides for the mouse-hold surprise expression. The user can
   // save up to 5 different combos ("slots"), each up to 3 shape keys with
   // their own intensity (0-1) - e.g. one slot for a startled face, another
@@ -600,7 +603,7 @@ const Profile = (() => {
       blinkIntervalMax: selectedBlinkIntervalMax,
       blinkEnabled: selectedBlinkEnabled,
       blinkShapeKeys: selectedBlinkShapeKeys,
-      mouthShapeKeys: selectedMouthShapeKeys,
+      mouthShapeKeys: serializeMouthEntries(selectedMouthShapeKeys),
       surpriseShapeKeys: serializeSurpriseEntries(selectedSurpriseSlots[editingSurpriseSlot]),
       lookAtCursor: selectedLookEnabled,
       onReady: ({ shapeKeyNames } = {}) => {
@@ -649,7 +652,16 @@ const Profile = (() => {
     $('#edit-profile-model-mouth-value').textContent = `${Math.round(selectedMouthIntensity * 100)}%`;
     $('#edit-profile-model-voicestart-value').textContent = `${Math.round(selectedVoiceStart)}%`;
     $('#edit-profile-model-voicemax-value').textContent = `${Math.round(selectedVoiceMax)}%`;
-    $('#edit-profile-model-mouth-shapekeys-input').value = selectedMouthShapeKeys;
+    const entries = selectedMouthShapeKeys || makeEmptyMouthEntries();
+    [0, 1, 2].forEach((index) => {
+      const entry = entries[index] || { name: '', intensity: 1 };
+      const input = $(`#edit-profile-model-mouth-${index + 1}-shapekeys-input`);
+      const slider = $(`#edit-profile-model-mouth-${index + 1}-slider`);
+      const value = $(`#edit-profile-model-mouth-${index + 1}-value`);
+      if (input) input.value = entry.name || '';
+      if (slider) slider.value = String(entry.intensity ?? 1);
+      if (value) value.textContent = `${Math.round((entry.intensity ?? 1) * 100)}%`;
+    });
   }
 
   function applyMouthIntensityFromSlider(value) {
@@ -682,19 +694,29 @@ const Profile = (() => {
     selectedMouthIntensity = 0.5;
     selectedVoiceStart = 5;
     selectedVoiceMax = 59;
-    selectedMouthShapeKeys = '';
+    selectedMouthShapeKeys = makeEmptyMouthEntries();
     renderLipSyncSliders();
-    const input = $('#edit-profile-model-mouth-shapekeys-input');
-    if (input) input.value = '';
     if (modelPreviewInstance) {
       modelPreviewInstance.setLipSyncSettings({ mouthIntensity: selectedMouthIntensity, voiceStart: selectedVoiceStart, voiceMax: selectedVoiceMax });
-      modelPreviewInstance.setMouthShapeKeys(selectedMouthShapeKeys);
+      modelPreviewInstance.setMouthShapeKeys(serializeMouthEntries(selectedMouthShapeKeys));
     }
   }
 
-  function applyMouthShapeKeysFromInput(value) {
-    selectedMouthShapeKeys = value;
-    if (modelPreviewInstance) modelPreviewInstance.setMouthShapeKeys(selectedMouthShapeKeys);
+  // Up to 3 mouth shape keys, each with its own name + relative intensity
+  // (0-1) - same pattern as applySurpriseShapeKeysFromInput()/
+  // applySurpriseIntensityFromSlider() below, just without the slot concept.
+  function applyMouthShapeKeysFromInput(index, value) {
+    const entries = selectedMouthShapeKeys;
+    entries[index] = { ...(entries[index] || { name: '', intensity: 1 }), name: value };
+    if (modelPreviewInstance) modelPreviewInstance.setMouthShapeKeys(serializeMouthEntries(entries));
+  }
+
+  function applyMouthIntensityFromKeySlider(index, value) {
+    const intensity = Number(value);
+    const entries = selectedMouthShapeKeys;
+    entries[index] = { ...(entries[index] || { name: '', intensity: 1 }), intensity: Number.isFinite(intensity) ? Math.min(1, Math.max(0, intensity)) : 1 };
+    renderLipSyncSliders();
+    if (modelPreviewInstance) modelPreviewInstance.setMouthShapeKeys(serializeMouthEntries(entries));
   }
 
   function renderBlinkSliders() {
@@ -908,6 +930,45 @@ const Profile = (() => {
 
   function makeEmptySurpriseEntries() {
     return [{ name: '', intensity: 1 }, { name: '', intensity: 1 }, { name: '', intensity: 1 }];
+  }
+
+  // Same idea as makeEmptySurpriseEntries()/normalizeSurpriseEntryList()/
+  // serializeSurpriseEntries() below, but for the lip-sync mouth shape
+  // keys - up to 3 entries, no "slots" concept though, since lip sync
+  // only ever has one active combo (unlike the hold-click surprise
+  // expression, it isn't picked per voice-command).
+  function makeEmptyMouthEntries() {
+    return [{ name: '', intensity: 1 }, { name: '', intensity: 1 }, { name: '', intensity: 1 }];
+  }
+
+  // Reads whatever's saved on the profile for mouth shape keys - the new
+  // JSON array of up to 3 { name, intensity } entries, or the older plain
+  // comma-separated shape-key-name string (pre-dates per-key intensity) -
+  // and always comes back with a full 3-entry array so the rest of the UI
+  // doesn't need to know which era the saved data came from.
+  function parseMouthShapeKeysValue(value) {
+    if (!value) return makeEmptyMouthEntries();
+    if (Array.isArray(value)) return normalizeSurpriseEntryList(value);
+
+    const trimmed = String(value).trim();
+    if (!trimmed) return makeEmptyMouthEntries();
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (Array.isArray(parsed)) return normalizeSurpriseEntryList(parsed);
+    } catch (e) {
+      // Legacy plain comma-separated shape-key-name string.
+      const names = trimmed.split(',').map((s) => s.trim()).filter(Boolean);
+      return normalizeSurpriseEntryList(names.map((name) => ({ name, intensity: 1 })));
+    }
+    return makeEmptyMouthEntries();
+  }
+
+  function serializeMouthEntries(entries) {
+    const normalized = (entries || makeEmptyMouthEntries()).slice(0, 3).map((entry) => ({
+      name: String(entry?.name || '').trim(),
+      intensity: Number.isFinite(Number(entry?.intensity)) ? Math.min(1, Math.max(0, Number(entry.intensity))) : 1,
+    })).filter((entry) => entry.name);
+    return JSON.stringify(normalized);
   }
 
   function makeEmptySurpriseSlots() {
@@ -1245,7 +1306,7 @@ const Profile = (() => {
     selectedBlinkIntervalMax = AppState.me.avatarModelBlinkIntervalMax ?? 4;
     selectedBlinkEnabled = AppState.me.avatarModelBlinkEnabled ?? true;
     selectedBlinkShapeKeys = AppState.me.avatarModelBlinkShapeKeys ?? '';
-    selectedMouthShapeKeys = AppState.me.avatarModelMouthShapeKeys ?? '';
+    selectedMouthShapeKeys = parseMouthShapeKeysValue(AppState.me.avatarModelMouthShapeKeys ?? '');
     {
       const surprise = parseSurpriseProfile(AppState.me.avatarModelSurpriseShapeKeys ?? '');
       selectedSurpriseSlots = surprise.slots;
@@ -1322,7 +1383,7 @@ const Profile = (() => {
         avatarModelMouthIntensity: selectedMouthIntensity, avatarModelVoiceStart: selectedVoiceStart, avatarModelVoiceMax: selectedVoiceMax,
         avatarModelBlinkIntensity: selectedBlinkIntensity, avatarModelBlinkIntervalMin: selectedBlinkIntervalMin, avatarModelBlinkIntervalMax: selectedBlinkIntervalMax, avatarModelBlinkEnabled: selectedBlinkEnabled,
         avatarModelBlinkShapeKeys: selectedBlinkShapeKeys,
-        avatarModelMouthShapeKeys: selectedMouthShapeKeys,
+        avatarModelMouthShapeKeys: serializeMouthEntries(selectedMouthShapeKeys),
         avatarModelSurpriseShapeKeys: serializeSurpriseProfile(selectedSurpriseSlots, activeSurpriseSlot),
         avatarModelLookEnabled: selectedLookEnabled,
         bannerUrl, bannerZoom: selectedBannerZoom, bannerOffsetX: selectedBannerOffsetX, bannerOffsetY: selectedBannerOffsetY,
@@ -1481,7 +1542,7 @@ const Profile = (() => {
       selectedBlinkIntervalMax = 4;
       selectedBlinkEnabled = true;
       selectedBlinkShapeKeys = '';
-      selectedMouthShapeKeys = '';
+      selectedMouthShapeKeys = makeEmptyMouthEntries();
       selectedSurpriseSlots = makeEmptySurpriseSlots();
       activeSurpriseSlot = 0;
       editingSurpriseSlot = 0;
@@ -1496,7 +1557,12 @@ const Profile = (() => {
     $('#edit-profile-model-voicestart-slider').addEventListener('input', (e) => applyVoiceStartFromSlider(e.target.value));
     $('#edit-profile-model-voicemax-slider').addEventListener('input', (e) => applyVoiceMaxFromSlider(e.target.value));
     $('#edit-profile-model-lipsync-reset').addEventListener('click', resetLipSync);
-    $('#edit-profile-model-mouth-shapekeys-input').addEventListener('input', (e) => applyMouthShapeKeysFromInput(e.target.value));
+    $('#edit-profile-model-mouth-1-shapekeys-input').addEventListener('input', (e) => applyMouthShapeKeysFromInput(0, e.target.value));
+    $('#edit-profile-model-mouth-2-shapekeys-input').addEventListener('input', (e) => applyMouthShapeKeysFromInput(1, e.target.value));
+    $('#edit-profile-model-mouth-3-shapekeys-input').addEventListener('input', (e) => applyMouthShapeKeysFromInput(2, e.target.value));
+    $('#edit-profile-model-mouth-1-slider').addEventListener('input', (e) => applyMouthIntensityFromKeySlider(0, e.target.value));
+    $('#edit-profile-model-mouth-2-slider').addEventListener('input', (e) => applyMouthIntensityFromKeySlider(1, e.target.value));
+    $('#edit-profile-model-mouth-3-slider').addEventListener('input', (e) => applyMouthIntensityFromKeySlider(2, e.target.value));
     $('#edit-profile-model-mic-test').addEventListener('click', toggleMicTest);
     $('#edit-profile-model-blink-toggle').addEventListener('change', (e) => applyBlinkToggle(e.target.checked));
     $('#edit-profile-model-blink-intensity-slider').addEventListener('input', (e) => applyBlinkIntensityFromSlider(e.target.value));
@@ -1541,7 +1607,7 @@ const Profile = (() => {
           selectedBlinkIntervalMax = 4;
           selectedBlinkEnabled = true;
           selectedBlinkShapeKeys = '';
-          selectedMouthShapeKeys = '';
+          selectedMouthShapeKeys = makeEmptyMouthEntries();
           selectedSurpriseSlots = makeEmptySurpriseSlots();
           activeSurpriseSlot = 0;
           editingSurpriseSlot = 0;

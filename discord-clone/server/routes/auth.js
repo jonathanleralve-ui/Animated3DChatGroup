@@ -302,10 +302,15 @@ router.patch('/me', auth, async (req, res) => {
     // Same idea as blink shape keys above, but for which shape key(s)
     // drive the mouth-opening lip-sync animation instead of the built-in
     // auto-detection ('あ', 'mouth', 'open', etc.). Empty means auto-detect.
+    // Now stores up to 3 entries of { name, intensity } as JSON (see
+    // profile.js's serializeMouthEntries), same shape as a single surprise
+    // slot, so up to 3 shape keys can drive the mouth at once instead of
+    // only ever one - the old 200-char plain-string ceiling is bumped up
+    // with headroom to match.
     if (avatarModelMouthShapeKeys !== undefined) {
       const keys = String(avatarModelMouthShapeKeys).trim();
-      if (keys.length > 200) {
-        return res.status(400).json({ error: 'Mouth shape key list is too long (200 characters max)' });
+      if (keys.length > 600) {
+        return res.status(400).json({ error: 'Mouth shape key list is too long (600 characters max)' });
       }
       updates.push(`avatar_model_mouth_shape_keys = $${idx++}`);
       values.push(keys);
