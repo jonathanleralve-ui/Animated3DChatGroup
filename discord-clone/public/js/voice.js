@@ -61,6 +61,14 @@ const VoiceChat = (() => {
   // across the whole voice chat area, not just within its own row.
   const streamTilePositions = {};
 
+  // key -> height in px, set by scrolling the wheel over a share tile.
+  // Once present, it overrides the automatic --stream-tile-height panel
+  // logic (via inline style, which always wins) so the user is in full
+  // manual control of that tile's size instead of it changing size
+  // whenever the panel does.
+  const streamTileSizes = {};
+  const STREAM_TILE_SIZE_STEP = 16;
+
   function $(sel) { return document.querySelector(sel); }
   const { avatarEl, initials } = Utils;
 
@@ -917,18 +925,19 @@ const VoiceChat = (() => {
   }
 
   // How tall #voice-participants can ever get, matching the same cap the
-  // resize handle and computeMinHeight() use (window.innerHeight * 0.7)
-  // minus whatever else the panel reserves (padding, the top bar, and the
-  // share tile while streaming). Dragging a tile down is clamped to this
-  // so it can never end up below where the panel's own resize handle
-  // could ever scroll it into view.
+  // resize handle and computeMinHeight() use (window.innerHeight * 0.7).
+  // Dragging a tile down is clamped to this so it can never end up below
+  // where the panel's own resize handle could ever scroll it into view.
+  // Note: this does NOT reserve any extra room for the share tile - the
+  // share tile floats independently above everything now (see
+  // makeStreamTileDraggable) and no longer needs dedicated space carved
+  // out of the participants area, streaming or not.
   function getMaxParticipantsAreaHeight() {
     const panel = $('#voice-panel');
     if (!panel) return Infinity;
     const m = getPanelLayoutMetrics(panel);
     const maxPanelHeight = window.innerHeight * 0.7;
-    const reserved = m.paddingTop + m.paddingBottom + m.topHeight + m.participantsMarginBottom
-      + (m.isStreaming ? m.gridMarginBottom + STREAM_TILE_MIN : 0);
+    const reserved = m.paddingTop + m.paddingBottom + m.topHeight + m.participantsMarginBottom;
     return Math.max(0, maxPanelHeight - reserved);
   }
 
@@ -953,14 +962,16 @@ const VoiceChat = (() => {
       maxBottom = Math.max(maxBottom, tilePositions[key].y + el.offsetHeight);
     });
 
-    const needed = m.paddingTop + m.paddingBottom + m.topHeight + maxBottom + m.participantsMarginBottom
-      + (m.isStreaming ? m.gridMarginBottom + STREAM_TILE_MIN : 0);
+    const needed = m.paddingTop + m.paddingBottom + m.topHeight + maxBottom + m.participantsMarginBottom;
 
     const maxPanelHeight = window.innerHeight * 0.7;
     const minPanelHeight = computeMinHeight(panel);
     const target = Math.min(Math.max(Math.ceil(needed), minPanelHeight), maxPanelHeight);
     panel.style.setProperty('--voice-panel-height', `${target}px`);
-    updateStreamTileHeight(panel);
+    // Deliberately NOT calling updateStreamTileHeight() here - the stream
+    // tile is its own independent element, sized only by the user
+    // scrolling on it directly. Dragging an avatar tile around should
+    // never grow or shrink it, same as the resize handle.
   }
 
   function onTileDragMove(e) {
@@ -1026,9 +1037,11 @@ const VoiceChat = (() => {
   // #voice-participants), the drag container here is #voice-panel-scroll -
   // the shared scrollable ancestor of both #voice-participants and
   // #voice-video-grid - so a shared screen can be moved over the whole
-  // panel, participants included. Position is remembered per key (the
-  // socket id, or 'local' for your own share) and re-applied if the share
-  // stops and starts again.
+  // panel, participants included. Movement is clamped to that container's
+  // own visible bounds, so the tile can never be dragged out of the voice
+  // chat area. Position is remembered per key (the socket id, or 'local'
+  // for your own share) and re-applied if the share stops and starts
+  // again.
   let streamTileDrag = null;
 
   function beginStreamTileDrag(e, key, tile) {
@@ -1069,13 +1082,13 @@ const VoiceChat = (() => {
     }
 
     const containerRect = streamTileDrag.container.getBoundingClientRect();
+    // Clamp to the container's own visible box on both axes, so the tile
+    // can never be dragged out of the voice chat area (no relying on
+    // scrolling to reach it).
     const maxLeft = Math.max(0, containerRect.width - streamTileDrag.tile.offsetWidth);
+    const maxTop = Math.max(0, containerRect.height - streamTileDrag.tile.offsetHeight);
     const left = Math.min(maxLeft, Math.max(0, streamTileDrag.baseLeft + dx));
-    // No hard cap on top - the scroll container grows its scrollable area
-    // to include absolutely-positioned descendants automatically, so
-    // dragging a tile below the visible area just makes it reachable by
-    // scrolling, same as the avatar tiles.
-    const top = Math.max(0, streamTileDrag.baseTop + dy);
+    const top = Math.min(maxTop, Math.max(0, streamTileDrag.baseTop + dy));
     streamTileDrag.tile.style.left = `${left}px`;
     streamTileDrag.tile.style.top = `${top}px`;
   }
@@ -1097,14 +1110,62 @@ const VoiceChat = (() => {
   // stream tile and wires up its drag handle, so both live-share tiles
   // behave consistently.
   function makeStreamTileDraggable(tile, key) {
+    tile.dataset.streamKey = key;
+    tile.title = 'Drag to move · scroll to resize';
     if (streamTilePositions[key]) {
       tile.style.position = 'absolute';
       tile.style.margin = '0';
       tile.style.left = `${streamTilePositions[key].x}px`;
       tile.style.top = `${streamTilePositions[key].y}px`;
+      // Re-clamp into the current container bounds - the panel may have
+      // been resized smaller since this position was saved.
+      requestAnimationFrame(() => clampStreamTileToContainer(tile, key));
+    }
+    if (streamTileSizes[key]) {
+      tile.style.height = `${streamTileSizes[key]}px`;
     }
     tile.addEventListener('pointerdown', (e) => beginStreamTileDrag(e, key, tile));
+    tile.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      const current = streamTileSizes[key] || tile.getBoundingClientRect().height;
+      const delta = e.deltaY < 0 ? STREAM_TILE_SIZE_STEP : -STREAM_TILE_SIZE_STEP;
+      const container = $('#voice-panel-scroll');
+      const containerHeight = container ? container.getBoundingClientRect().height : current;
+      const maxHeight = Math.max(STREAM_TILE_MIN, containerHeight);
+      const next = Math.min(maxHeight, Math.max(STREAM_TILE_MIN, current + delta));
+      if (next === current) return;
+      streamTileSizes[key] = next;
+      tile.style.height = `${next}px`;
+      // Resizing can push the tile past the container's edge (e.g.
+      // growing it while it sits near the bottom) - pull it back in.
+      clampStreamTileToContainer(tile, key);
+    }, { passive: false });
   }
+
+  function clampStreamTileToContainer(tile, key) {
+    const container = $('#voice-panel-scroll');
+    if (!container || tile.style.position !== 'absolute') return;
+    const containerRect = container.getBoundingClientRect();
+    const maxLeft = Math.max(0, containerRect.width - tile.offsetWidth);
+    const maxTop = Math.max(0, containerRect.height - tile.offsetHeight);
+    const left = Math.min(maxLeft, Math.max(0, parseFloat(tile.style.left) || 0));
+    const top = Math.min(maxTop, Math.max(0, parseFloat(tile.style.top) || 0));
+    tile.style.left = `${left}px`;
+    tile.style.top = `${top}px`;
+    streamTilePositions[key] = { x: left, y: top };
+  }
+
+  // Re-clamps every currently free-positioned stream tile into the panel's
+  // current bounds. Needed because the panel's own height/width can change
+  // (resize handle, window resize) after a tile was already dropped.
+  function clampAllStreamTiles() {
+    document.querySelectorAll('#voice-video-grid .stream-tile').forEach((tile) => {
+      const key = tile.dataset.streamKey;
+      if (key) clampStreamTileToContainer(tile, key);
+    });
+  }
+
+  window.addEventListener('resize', () => clampAllStreamTiles());
 
   function participantTile(key, name, color, isMuted, isSharing, isSelf, avatarUrl, nameColor, avatarMode, avatarModelUrl, avatarModelZoom, avatarModelOffsetX, avatarModelOffsetY, avatarModelRotationY, avatarModelMouthIntensity, avatarModelVoiceStart, avatarModelVoiceMax, avatarModelBlinkIntensity, avatarModelBlinkIntervalMin, avatarModelBlinkIntervalMax, avatarModelBlinkEnabled, avatarModelBlinkShapeKeys, avatarModelLookEnabled, avatarModelSurpriseShapeKeys, avatarModelMouthShapeKeys, avatarModelSurpriseEnabled) {
     const tile = document.createElement('div');
@@ -1404,14 +1465,15 @@ const VoiceChat = (() => {
         maxBottom = Math.max(maxBottom, tilePositions[key].y + el.offsetHeight);
       });
       if (maxBottom > 0) {
-        positionedNeeded = m.paddingTop + m.paddingBottom + m.topHeight + maxBottom + m.participantsMarginBottom
-          + (m.isStreaming ? m.gridMarginBottom + STREAM_TILE_MIN : 0);
+        positionedNeeded = m.paddingTop + m.paddingBottom + m.topHeight + maxBottom + m.participantsMarginBottom;
       }
     }
 
     const target = Math.min(Math.max(min, positionedNeeded), maxHeight);
     panel.style.setProperty('--voice-panel-height', `${target}px`);
-    updateStreamTileHeight(panel);
+    // Deliberately NOT calling updateStreamTileHeight() here - see the
+    // note in syncPanelHeightToDrag. The stream tile only resizes when the
+    // user scrolls on it directly.
   }
 
   // Called after every participants render: if the panel is currently
@@ -1428,7 +1490,8 @@ const VoiceChat = (() => {
     const current = panel.getBoundingClientRect().height;
     if (current < min) {
       panel.style.setProperty('--voice-panel-height', `${min}px`);
-      updateStreamTileHeight(panel);
+      // Deliberately NOT calling updateStreamTileHeight() here either -
+      // same reasoning as above.
     }
   }
 
@@ -1511,7 +1574,11 @@ const VoiceChat = (() => {
       let newHeight = startHeight + (e.clientY - startY);
       newHeight = Math.min(Math.max(newHeight, minHeight), maxHeight);
       panel.style.setProperty('--voice-panel-height', `${newHeight}px`);
-      updateStreamTileHeight(panel);
+      // Deliberately NOT calling updateStreamTileHeight() here - the panel
+      // resize handle should only resize the panel/participants area. The
+      // share tile's size is fully user-controlled (wheel-resize) and
+      // shouldn't change just because the handle moved.
+      clampAllStreamTiles();
     });
 
     window.addEventListener('mouseup', () => {
