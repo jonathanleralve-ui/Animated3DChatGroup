@@ -440,6 +440,14 @@
   height: var(--stream-tile-height, min(150px, 20vh));
   width: auto;
   max-width: 60vw;
+  cursor: grab;
+  touch-action: none;
+}
+
+.stream-tile--dragging {
+  cursor: grabbing;
+  z-index: 20;
+  user-select: none;
 }
 
 .stream-tile video {

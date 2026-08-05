@@ -55,6 +55,12 @@ const VoiceChat = (() => {
   const TILE_SIZE_MAX = 360;
   const TILE_SIZE_STEP = 12;
 
+  // key -> { x, y } in px, relative to #voice-panel-scroll's top-left (the
+  // shared container for both the avatar tiles and the screen-share
+  // tiles). Lets a screen-share ("live share") tile be dragged anywhere
+  // across the whole voice chat area, not just within its own row.
+  const streamTilePositions = {};
+
   function $(sel) { return document.querySelector(sel); }
   const { avatarEl, initials } = Utils;
 
@@ -1015,6 +1021,91 @@ const VoiceChat = (() => {
     if (maxBottom > 0) container.style.minHeight = `${Math.ceil(maxBottom) + 16}px`;
   }
 
+  // Free-dragging screen-share ("live share") tiles anywhere across the
+  // voice chat area. Unlike the avatar tiles above (which are confined to
+  // #voice-participants), the drag container here is #voice-panel-scroll -
+  // the shared scrollable ancestor of both #voice-participants and
+  // #voice-video-grid - so a shared screen can be moved over the whole
+  // panel, participants included. Position is remembered per key (the
+  // socket id, or 'local' for your own share) and re-applied if the share
+  // stops and starts again.
+  let streamTileDrag = null;
+
+  function beginStreamTileDrag(e, key, tile) {
+    if (e.button !== undefined && e.button !== 0) return; // primary button/touch only
+    if (e.target.closest && e.target.closest('.stream-expand-btn')) return; // let the fullscreen button work normally
+    const container = $('#voice-panel-scroll');
+    if (!container) return;
+    const containerRect = container.getBoundingClientRect();
+    const tileRect = tile.getBoundingClientRect();
+    streamTileDrag = {
+      key,
+      tile,
+      container,
+      pointerId: e.pointerId,
+      startClientX: e.clientX,
+      startClientY: e.clientY,
+      baseLeft: tileRect.left - containerRect.left + container.scrollLeft,
+      baseTop: tileRect.top - containerRect.top + container.scrollTop,
+      moved: false,
+    };
+    window.addEventListener('pointermove', onStreamTileDragMove);
+    window.addEventListener('pointerup', endStreamTileDrag);
+    window.addEventListener('pointercancel', endStreamTileDrag);
+  }
+
+  function onStreamTileDragMove(e) {
+    if (!streamTileDrag) return;
+    const dx = e.clientX - streamTileDrag.startClientX;
+    const dy = e.clientY - streamTileDrag.startClientY;
+
+    if (!streamTileDrag.moved) {
+      if (Math.hypot(dx, dy) < TILE_DRAG_THRESHOLD) return;
+      streamTileDrag.moved = true;
+      streamTileDrag.tile.classList.add('stream-tile--dragging');
+      streamTileDrag.tile.style.position = 'absolute';
+      streamTileDrag.tile.style.margin = '0';
+      try { streamTileDrag.tile.setPointerCapture(streamTileDrag.pointerId); } catch (err) { /* noop */ }
+    }
+
+    const containerRect = streamTileDrag.container.getBoundingClientRect();
+    const maxLeft = Math.max(0, containerRect.width - streamTileDrag.tile.offsetWidth);
+    const left = Math.min(maxLeft, Math.max(0, streamTileDrag.baseLeft + dx));
+    // No hard cap on top - the scroll container grows its scrollable area
+    // to include absolutely-positioned descendants automatically, so
+    // dragging a tile below the visible area just makes it reachable by
+    // scrolling, same as the avatar tiles.
+    const top = Math.max(0, streamTileDrag.baseTop + dy);
+    streamTileDrag.tile.style.left = `${left}px`;
+    streamTileDrag.tile.style.top = `${top}px`;
+  }
+
+  function endStreamTileDrag() {
+    if (!streamTileDrag) return;
+    const { key, tile, moved } = streamTileDrag;
+    window.removeEventListener('pointermove', onStreamTileDragMove);
+    window.removeEventListener('pointerup', endStreamTileDrag);
+    window.removeEventListener('pointercancel', endStreamTileDrag);
+    if (moved) {
+      tile.classList.remove('stream-tile--dragging');
+      streamTilePositions[key] = { x: parseFloat(tile.style.left) || 0, y: parseFloat(tile.style.top) || 0 };
+    }
+    streamTileDrag = null;
+  }
+
+  // Applies a remembered free position (if any) to a freshly-created
+  // stream tile and wires up its drag handle, so both live-share tiles
+  // behave consistently.
+  function makeStreamTileDraggable(tile, key) {
+    if (streamTilePositions[key]) {
+      tile.style.position = 'absolute';
+      tile.style.margin = '0';
+      tile.style.left = `${streamTilePositions[key].x}px`;
+      tile.style.top = `${streamTilePositions[key].y}px`;
+    }
+    tile.addEventListener('pointerdown', (e) => beginStreamTileDrag(e, key, tile));
+  }
+
   function participantTile(key, name, color, isMuted, isSharing, isSelf, avatarUrl, nameColor, avatarMode, avatarModelUrl, avatarModelZoom, avatarModelOffsetX, avatarModelOffsetY, avatarModelRotationY, avatarModelMouthIntensity, avatarModelVoiceStart, avatarModelVoiceMax, avatarModelBlinkIntensity, avatarModelBlinkIntervalMin, avatarModelBlinkIntervalMax, avatarModelBlinkEnabled, avatarModelBlinkShapeKeys, avatarModelLookEnabled, avatarModelSurpriseShapeKeys, avatarModelMouthShapeKeys, avatarModelSurpriseEnabled) {
     const tile = document.createElement('div');
     tile.className = 'voice-tile';
@@ -1101,6 +1192,7 @@ const VoiceChat = (() => {
       label.textContent = `${info.displayName}'s screen`;
       tile.appendChild(label);
       tile.appendChild(buildExpandButton(tile));
+      makeStreamTileDraggable(tile, socketId);
       grid.appendChild(tile);
     }
     const videoEl = tile.querySelector('video');
@@ -1173,6 +1265,7 @@ const VoiceChat = (() => {
       label.textContent = 'You are sharing your screen';
       tile.appendChild(label);
       tile.appendChild(buildExpandButton(tile));
+      makeStreamTileDraggable(tile, 'local');
       grid.appendChild(tile);
     }
     tile.querySelector('video').srcObject = stream;
