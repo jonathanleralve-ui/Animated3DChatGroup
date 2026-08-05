@@ -2,10 +2,14 @@
 // built-in SpeechRecognition (Chrome/Edge; not available in Firefox and only
 // partially in Safari) to listen continuously while connected to a voice
 // channel. Handles two kinds of commands:
-//  - fixed trigger words/phrases (configured in the voice-command settings
-//    panel) - calls back with the matched phrase, an optional custom
-//    uploaded sound URL, and whether the word is also flagged to pulse the
-//    speaker's avatar-hold reaction.
+//  - fixed trigger words/phrases, from TWO sources merged together (see
+//    rebuildTriggers): the group's shared Public list (word + optional
+//    sound only) and this user's own local Private list (word + sound +
+//    which saved avatar-reaction slot to fire) - both configured in the
+//    voice-command settings panel (public/js/voice-command-settings.js).
+//    Calls back with the matched phrase, an optional custom uploaded sound
+//    URL, and whether/which slot to pulse the speaker's avatar-hold
+//    reaction with.
 //  - "play <song>" - calls back with whatever was said after "play" so the
 //    caller can look it up on YouTube (see voice-youtube.js).
 // No icon/emoji is shown for either - the only feedback is audio. Note this
@@ -25,39 +29,61 @@ const VoiceSpeech = (() => {
     { phrase: 'wow' }
   ];
 
-  let TRIGGERS = DEFAULT_TRIGGERS.slice();
+  let PUBLIC_TRIGGERS = DEFAULT_TRIGGERS.slice(); // the group's shared word list
+  let PRIVATE_TRIGGERS = []; // this user's own personal word list (see voice-command-settings.js)
+  let TRIGGERS = DEFAULT_TRIGGERS.slice(); // PUBLIC_TRIGGERS + PRIVATE_TRIGGERS merged - what matching actually checks
   let LANGUAGE = 'en-US';
 
+  // Recomputes the merged list checkForTrigger() matches against, any time
+  // either half changes. Falls back to the defaults only when BOTH halves
+  // end up empty, same as the old single-list behavior.
+  function rebuildTriggers() {
+    const merged = PUBLIC_TRIGGERS.concat(PRIVATE_TRIGGERS);
+    TRIGGERS = merged.length ? merged : DEFAULT_TRIGGERS.slice();
+  }
+
   // Swaps in the current group's shared word list (from group.voiceCommandTriggers,
-  // saved via the voice-command settings panel). Falls back to the defaults
-  // for anything missing/invalid/empty, so recognition never ends up running
-  // with zero triggers just because a field came back malformed.
+  // saved via the Public tab of the voice-command settings panel). This half
+  // is just a word + optional sound - no avatar reaction, since that's now
+  // exclusively a Private-tab thing (see setPrivateTriggers below).
   function setTriggers(list) {
     if (!Array.isArray(list) || list.length === 0) {
-      TRIGGERS = DEFAULT_TRIGGERS.slice();
-      return;
+      PUBLIC_TRIGGERS = [];
+    } else {
+      PUBLIC_TRIGGERS = list
+        .filter((t) => t && typeof t.phrase === 'string' && t.phrase.trim())
+        .map((t) => ({
+          phrase: t.phrase.trim().toLowerCase(),
+          soundUrl: typeof t.soundUrl === 'string' && t.soundUrl.trim() ? t.soundUrl.trim() : null,
+          avatarReaction: false,
+          reactionSlot: null,
+          reactionHoldMs: null
+        }));
     }
-    const cleaned = list
-      .filter((t) => t && typeof t.phrase === 'string' && t.phrase.trim())
-      .map((t) => ({
-        phrase: t.phrase.trim().toLowerCase(),
-        soundUrl: typeof t.soundUrl === 'string' && t.soundUrl.trim() ? t.soundUrl.trim() : null,
-        // When set, hearing this phrase also pulses the "hold" surprise
-        // expression on the speaker's own avatar (see voice.js's
-        // pulseAvatarReaction()) - the speech equivalent of holding the
-        // mouse down on it, since there's no natural "release" moment.
-        avatarReaction: !!t.avatarReaction,
-        // Which saved surprise slot (0-based) to use for that reaction -
-        // null/omitted means "whatever's currently active" (matches plain
-        // mouse-hold behavior); otherwise a specific slot index (see Edit
-        // Profile's slot tabs and avatar3d.js's setMouseHoldSurprise()).
-        reactionSlot: Number.isInteger(t.reactionSlot) ? t.reactionSlot : null,
-        // How long (ms) the reaction holds before auto-releasing - speech
-        // has no release moment of its own, unlike an actual mouse-hold.
-        // null/omitted falls back to voice.js's own default.
-        reactionHoldMs: Number.isFinite(t.reactionHoldMs) ? t.reactionHoldMs : null
-      }));
-    TRIGGERS = cleaned.length ? cleaned : DEFAULT_TRIGGERS.slice();
+    rebuildTriggers();
+  }
+
+  // Swaps in this user's own personal word list (from the Private tab -
+  // stored locally per-user, not shared with the group, see
+  // voice-command-settings.js's loadPrivateTriggers/getPrivateTriggers).
+  // Every private trigger always reacts (that's the whole point of the
+  // slot picker), so avatarReaction is forced true regardless of what's
+  // in the stored row.
+  function setPrivateTriggers(list) {
+    if (!Array.isArray(list) || list.length === 0) {
+      PRIVATE_TRIGGERS = [];
+    } else {
+      PRIVATE_TRIGGERS = list
+        .filter((t) => t && typeof t.phrase === 'string' && t.phrase.trim())
+        .map((t) => ({
+          phrase: t.phrase.trim().toLowerCase(),
+          soundUrl: typeof t.soundUrl === 'string' && t.soundUrl.trim() ? t.soundUrl.trim() : null,
+          avatarReaction: true,
+          reactionSlot: Number.isInteger(t.reactionSlot) ? t.reactionSlot : null,
+          reactionHoldMs: Number.isFinite(t.reactionHoldMs) ? t.reactionHoldMs : null
+        }));
+    }
+    rebuildTriggers();
   }
 
   // Sets which language the recognizer transcribes (BCP-47 tag, e.g.
@@ -253,5 +279,5 @@ const VoiceSpeech = (() => {
     }
   }
 
-  return { supported, start, stop, setTriggers, setLanguage, getTriggers: () => TRIGGERS, DEFAULT_TRIGGERS };
+  return { supported, start, stop, setTriggers, setPrivateTriggers, setLanguage, getTriggers: () => TRIGGERS, DEFAULT_TRIGGERS };
 })();

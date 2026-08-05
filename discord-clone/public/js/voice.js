@@ -262,6 +262,7 @@ const VoiceChat = (() => {
       if (typeof VoiceSpeech !== 'undefined' && VoiceSpeech.supported()) {
         const group = (typeof AppState !== 'undefined' && AppState.groupsData) ? AppState.groupsData.find((g) => g.id === groupId) : null;
         VoiceSpeech.setTriggers(group && group.voiceCommandTriggers);
+        VoiceSpeech.setPrivateTriggers(typeof VoiceCommandSettings !== 'undefined' ? VoiceCommandSettings.getPrivateTriggers(groupId) : null);
         VoiceSpeech.setLanguage(group && group.voiceCommandLanguage);
         VoiceSpeech.start(
           (phrase, soundUrl, avatarReaction, reactionSlot, reactionHoldMs) => triggerReaction(soundUrl, avatarReaction, reactionSlot, reactionHoldMs),

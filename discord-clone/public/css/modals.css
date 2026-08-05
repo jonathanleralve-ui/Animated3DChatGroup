@@ -216,6 +216,42 @@
 
 .pixel-modal-body .empty-list-hint { color: #6b6558; }
 
+.voice-commands-tabs {
+  display: flex;
+  gap: 8px;
+  margin: 14px 0 0;
+}
+.voice-commands-tab {
+  flex: 1;
+  padding: 8px 10px;
+  border-radius: 0;
+  border: 3px solid #111214;
+  box-shadow: 2px 2px 0 #111214;
+  background: #ece6d6;
+  color: #111214;
+  font-family: 'Courier New', monospace;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, transform 0.05s ease, box-shadow 0.05s ease;
+}
+.voice-commands-tab:hover { background: #fff9ea; }
+.voice-commands-tab.active {
+  background: #111214;
+  color: #ece6d6;
+  transform: translate(2px, 2px);
+  box-shadow: 0 0 0 #111214;
+}
+
+.voice-commands-tab-hint {
+  font-size: 12px;
+  color: #6b6558;
+  margin: 10px 0 0;
+  line-height: 1.4;
+}
+
 .voice-commands-language-row {
   display: flex;
   align-items: center;

@@ -805,7 +805,11 @@
     </div>
     <div class="pixel-modal-body">
       <h2>VOICE COMMAND WORDS</h2>
-      <p>Shared with everyone in this group. Say one of these while connected to a voice channel here and it'll play the attached sound clip for the whole channel. Turn on 😮 for a word to also make your avatar react - same as holding the mouse down on it - and pick which saved expression slot and how many seconds it holds for. Any member can edit the list. Detection runs in Chrome/Edge only.</p>
+      <div class="voice-commands-tabs">
+        <button class="voice-commands-tab active" id="voice-commands-tab-public" type="button">🌐 PUBLIC</button>
+        <button class="voice-commands-tab" id="voice-commands-tab-private" type="button">🔒 PRIVATE</button>
+      </div>
+      <p class="voice-commands-tab-hint" id="voice-commands-tab-hint"></p>
       <div class="voice-commands-language-row">
         <label for="voice-commands-language">Listening language</label>
         <select id="voice-commands-language">
