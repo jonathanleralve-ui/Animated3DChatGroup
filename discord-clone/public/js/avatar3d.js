@@ -1052,6 +1052,13 @@ function createAvatar3D(container, options = {}) {
             return surpriseShapeKeySettings.slice();
         },
         setSurpriseShapeKeys(entriesInput) {
+            // Zero out whatever the previous slot's shape keys were
+            // currently driving before swapping the reference out from
+            // under them - otherwise switching slots (e.g. clicking a
+            // different surprise-slot tab) while still mid-hold leaves the
+            // old slot's expression frozen on screen alongside the new
+            // one instead of handing off cleanly.
+            surpriseKeyGroups.forEach((group) => group.keys.forEach((k) => { k.inf[k.index] = 0; }));
             surpriseShapeKeySettings = parseSurpriseShapeKeySettings(entriesInput);
             surpriseKeyGroups = [];
             if (model && surpriseShapeKeySettings.length > 0) {
@@ -1078,21 +1085,28 @@ function createAvatar3D(container, options = {}) {
         // whichever slot Edit Profile currently has set as active - this
         // is what lets a voice command request a particular reaction. Pass
         // it as undefined/omit it entirely for the normal mouse-hold
-        // behavior. Only meaningful on the true edge (has no effect once
-        // held is false - see updateSurprise() for how the override is
-        // actually cleared, on release rather than here, so the fade-out
-        // finishes on the same shape keys it faded in with).
+        // behavior. Also handles the mid-hold case: a second voice command
+        // (or a slot change) can arrive with `held` still true and a
+        // different slotIndex before the first hold has released - see
+        // updateSurprise() for the normal on-release cleanup, which this
+        // mirrors for the case where the switch happens without a release
+        // in between.
         setMouseHoldSurprise(held, slotIndex) {
             mouseIsHeld = !!held;
             if (!held) return;
-            if (!Number.isInteger(slotIndex) || slotIndex === activeSurpriseSlotIndex) {
-                overrideSurpriseKeyGroups = null; // normal active-slot behavior
-                return;
-            }
-            if (!surpriseGroupsBySlotCache[slotIndex]) {
-                surpriseGroupsBySlotCache[slotIndex] = buildSurpriseGroupsForEntries(allSurpriseSlotEntries[slotIndex]);
-            }
-            overrideSurpriseKeyGroups = surpriseGroupsBySlotCache[slotIndex].length > 0 ? surpriseGroupsBySlotCache[slotIndex] : null;
+            const nextGroups = (!Number.isInteger(slotIndex) || slotIndex === activeSurpriseSlotIndex)
+                ? null
+                : (surpriseGroupsBySlotCache[slotIndex]
+                    || (surpriseGroupsBySlotCache[slotIndex] = buildSurpriseGroupsForEntries(allSurpriseSlotEntries[slotIndex])));
+            const resolvedNext = (nextGroups && nextGroups.length > 0) ? nextGroups : null;
+            if (resolvedNext === overrideSurpriseKeyGroups) return; // same slot as before - nothing to hand off
+            // Switching to a different slot's shape keys - zero out
+            // whatever the previously active group (override or default)
+            // was driving so it doesn't stay stuck showing alongside the
+            // new slot's expression.
+            const previousGroups = overrideSurpriseKeyGroups || surpriseKeyGroups;
+            previousGroups.forEach((group) => group.keys.forEach((k) => { k.inf[k.index] = 0; }));
+            overrideSurpriseKeyGroups = resolvedNext;
         },
         // How many surprise slots this avatar actually has saved (up to 5,
         // Edit Profile's SURPRISE_SLOT_COUNT) - used by the voice-command
