@@ -28,6 +28,8 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname, '..', 'public')));
 app.use('/uploads', express.static(UPLOAD_DIR));
 
+app.get('/api/health', (req, res) => res.json({ ok: true }));
+
 app.use('/api/auth', authRoutes);
 app.use('/api/friends', friendRoutes);
 app.use('/api/groups', groupRoutes);
@@ -36,8 +38,6 @@ app.use('/api/messages', messageRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/upload/avatar-model', avatarModelRoutes);
 app.use('/api/youtube', youtubeRoutes);
-
-app.get('/api/health', (req, res) => res.json({ ok: true }));
 
 // No favicon in the project yet - respond quietly instead of a noisy 404.
 app.get('/favicon.ico', (req, res) => res.status(204).end());
