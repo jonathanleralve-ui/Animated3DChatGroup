@@ -76,7 +76,7 @@ async function start() {
     };
 
     server.once('error', onError);
-    server.listen(port, () => {
+    server.listen(port, '0.0.0.0', () => {
       server.off('error', onError);
       resolve(port);
     });
@@ -84,7 +84,7 @@ async function start() {
 
   const actualPort = await tryListen(requestedPort);
   console.log(`Discord-clone server running at http://localhost:${actualPort}`);
-}
+  }
 
 start().catch((err) => {
   console.error('Failed to start server:', err);
