@@ -39,9 +39,19 @@ app.use('/api/youtube', youtubeRoutes);
 
 app.get('/api/health', (req, res) => res.json({ ok: true }));
 
-// Fallback to the SPA for any non-API route
+// No favicon in the project yet - respond quietly instead of a noisy 404.
+app.get('/favicon.ico', (req, res) => res.status(204).end());
+
+// Fallback to the SPA for any non-API route. Requests that look like static
+// asset files (have a file extension) but weren't matched by express.static
+// above genuinely don't exist - return a proper 404 for those instead of
+// silently serving index.html, so clients (e.g. GLTFLoader/fetch) can tell
+// the difference between "page not found" and "asset missing".
 app.get('*', (req, res, next) => {
   if (req.path.startsWith('/api')) return next();
+  if (path.extname(req.path)) {
+    return res.status(404).send('Not found');
+  }
   res.sendFile(path.join(__dirname, '..', 'public', 'index.html'));
 });
 
