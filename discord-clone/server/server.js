@@ -1,6 +1,8 @@
 require('dotenv').config();
 const express = require('express');
 const http = require('http');
+const https = require('https');
+const fs = require('fs');
 const path = require('path');
 const cors = require('cors');
 const { Server } = require('socket.io');
@@ -19,7 +21,24 @@ const avatarModelRoutes = require('./routes/avatarModel');
 const youtubeRoutes = require('./routes/youtube');
 
 const app = express();
-const server = http.createServer(app);
+
+// If certs/*.pem exist (see mkcert setup in the README), serve over HTTPS
+// so camera/mic/etc. work when accessed via a LAN IP instead of localhost -
+// browsers only allow getUserMedia on secure origins (https, or literally
+// "localhost"). Falls back to plain HTTP if no certs are present, so
+// nothing breaks for anyone who hasn't set this up.
+const certsDir = path.join(__dirname, '..', 'certs');
+const keyPath = process.env.SSL_KEY_PATH || (fs.existsSync(certsDir)
+  ? fs.readdirSync(certsDir).map((f) => path.join(certsDir, f)).find((f) => f.endsWith('-key.pem'))
+  : null);
+const certPath = process.env.SSL_CERT_PATH || (fs.existsSync(certsDir)
+  ? fs.readdirSync(certsDir).map((f) => path.join(certsDir, f)).find((f) => f.endsWith('.pem') && !f.endsWith('-key.pem'))
+  : null);
+const useHttps = !!(keyPath && certPath && fs.existsSync(keyPath) && fs.existsSync(certPath));
+
+const server = useHttps
+  ? https.createServer({ key: fs.readFileSync(keyPath), cert: fs.readFileSync(certPath) }, app)
+  : http.createServer(app);
 const io = new Server(server);
 app.set('io', io);
 
@@ -83,7 +102,12 @@ async function start() {
   });
 
   const actualPort = await tryListen(requestedPort);
-  console.log(`Discord-clone server running at http://localhost:${actualPort}`);
+  const scheme = useHttps ? 'https' : 'http';
+  console.log(`Discord-clone server running at ${scheme}://localhost:${actualPort}`);
+  if (!useHttps) {
+    console.log('Running over plain HTTP, camera/mic will only work via localhost, not a LAN IP.');
+    console.log('See README for mkcert setup to enable HTTPS.');
+  }
   }
 
 start().catch((err) => {
