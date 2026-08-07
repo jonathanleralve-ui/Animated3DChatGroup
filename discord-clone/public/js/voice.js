@@ -446,6 +446,9 @@ const VoiceChat = (() => {
   }
 
   let songMuted = false;
+  // Tracks whatever updateNowPlayingBar() last saw, so the pause/resume
+  // button knows which direction to toggle - see togglePauseSong().
+  let currentSongStatus = 'stopped';
 
   function updateSongMuteButton() {
     const btn = $('#voice-now-playing-mute');
@@ -454,12 +457,29 @@ const VoiceChat = (() => {
     btn.title = songMuted ? 'Unmute' : 'Mute';
   }
 
+  // Reflects play/pause state on the ⏯️ button itself so it's clear which
+  // action a click will take next.
+  function updatePauseButton() {
+    const btn = $('#voice-now-playing-pause');
+    if (!btn) return;
+    btn.title = currentSongStatus === 'paused' ? 'Resume' : 'Pause';
+  }
+
   function pauseSong() {
     if (typeof VoiceYoutube !== 'undefined') VoiceYoutube.pause();
   }
 
   function resumeSong() {
     if (typeof VoiceYoutube !== 'undefined') VoiceYoutube.resume();
+  }
+
+  // Wired to the single ⏯️ button - it has to pick pause vs resume itself
+  // based on the last known state, rather than the button always calling
+  // pauseSong() (which just re-paused an already-paused video and could
+  // never get back to playing).
+  function togglePauseSong() {
+    if (currentSongStatus === 'paused') resumeSong();
+    else pauseSong();
   }
 
   function toggleSongMute() {
@@ -486,6 +506,8 @@ const VoiceChat = (() => {
   // in flight, 'playing' swaps in the confirmed title once it starts,
   // 'stopped'/'error' hide the bar again.
   function updateNowPlayingBar(status, info) {
+    currentSongStatus = status;
+    updatePauseButton();
     const bar = $('#voice-now-playing');
     const label = $('#voice-now-playing-title');
     if (!bar || !label) return;
@@ -1617,6 +1639,7 @@ const VoiceChat = (() => {
     triggerReaction,
     pauseSong,
     resumeSong,
+    togglePauseSong,
     toggleSongMute,
     stopSong
   };
